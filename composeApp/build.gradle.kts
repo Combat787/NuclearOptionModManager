@@ -41,6 +41,10 @@ kotlin {
 
             implementation(libs.compose.colorpicker)
             implementation(libs.materialKolor)
+
+            implementation("org.apache.commons:commons-compress:1.28.0")
+            implementation("org.tukaani:xz:1.11")
+            implementation("com.github.junrar:junrar:7.5.7")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

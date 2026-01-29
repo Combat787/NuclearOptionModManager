@@ -47,7 +47,6 @@ fun SearchScreen(
                     val authorScore = ext.authors.maxOfOrNull { fuzzyPowerScore(query, it) } ?: 0.0
 
                     val weightedScore = (nameScore * 5.0) + (idScore * 2.0) + (authorScore * 1.5)
-
                     val lengthPenalty = if (ext.displayName.length > query.length * 3) 0.9 else 1.0
 
                     ext to (weightedScore * lengthPenalty)
@@ -63,7 +62,7 @@ fun SearchScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(bottom = 16.dp),
     ) {
-        stickyHeader { _ ->
+        stickyHeader {
             Row(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp).height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -71,7 +70,7 @@ fun SearchScreen(
             ) {
                 SearchBar(
                     query = searchQuery,
-                    onQueryChange = { query -> searchQuery = query },
+                    onQueryChange = { searchQuery = it },
                     modifier = Modifier.weight(1f).border(
                         width = Dp.Hairline,
                         color = MaterialTheme.colorScheme.outline,
@@ -102,15 +101,15 @@ fun SearchScreen(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         style = MaterialTheme.typography.labelLarge
                     )
-
                 }
             }
-        } else
+        } else {
             items(filteredMods, key = { it.id }) { mod ->
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     ModItem(mod = mod, onClick = { onNavigateToMod(mod.id) })
                 }
             }
+        }
     }
 }
 
@@ -125,11 +124,11 @@ fun SearchBar(
         onValueChange = onQueryChange,
         modifier = modifier,
         placeholder = { Text("Search mods...", style = MaterialTheme.typography.bodyMedium) },
-        leadingIcon = { Icon(painterResource(Res.drawable.search_24px), contentDescription = null) },
+        leadingIcon = { Icon(painterResource(Res.drawable.search_24px), null) },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(painterResource(Res.drawable.close_24px), contentDescription = "Clear")
+                    Icon(painterResource(Res.drawable.close_24px), "Clear")
                 }
             }
         },
@@ -144,7 +143,7 @@ fun SearchBar(
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ModItem(mod: Extension, onClick: () -> Unit) {
     val installStatuses by Installer.installStatuses.collectAsState()
@@ -156,22 +155,20 @@ fun ModItem(mod: Extension, onClick: () -> Unit) {
     Card(
         modifier = Modifier,
         shape = MaterialTheme.shapes.small,
-        onClick = { onClick() },
+        onClick = onClick,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(text = buildAnnotatedString {
                     withStyle(MaterialTheme.typography.titleMediumEmphasized.toSpanStyle()) {
                         append(mod.displayName)
                     }
                     withStyle(MaterialTheme.typography.labelSmall.toSpanStyle()) {
-                        this.append(" by ")
+                        append(" by ")
                         append(mod.authors.joinToString(", "))
                     }
                 })
@@ -184,87 +181,62 @@ fun ModItem(mod: Extension, onClick: () -> Unit) {
                 )
             }
 
-            if (taskState != null) {
-                Button(
-                    onClick = {
-                        if (taskState.phase == TaskState.Phase.DOWNLOADING) {
-                            taskState.cancel()
-                        }
-                    },
-                    modifier = Modifier.requiredSize(width = 40.dp, height = 40.dp).align(Alignment.CenterVertically),
-                    contentPadding = PaddingValues(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(
-                            progress = { taskState.progress ?: 0f },
-                            modifier = Modifier.fillMaxSize(),
-                            strokeWidth = 3.dp,
-                            trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            when {
+                taskState != null -> {
+                    Button(
+                        onClick = { if (taskState.phase == TaskState.Phase.DOWNLOADING) taskState.cancel() },
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = PaddingValues(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.primary
                         )
-                        if (taskState.phase == TaskState.Phase.DOWNLOADING) {
-                            Icon(
-                                painterResource(Res.drawable.close_24px),
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(
+                                progress = { taskState.progress ?: 0f },
+                                modifier = Modifier.fillMaxSize(),
+                                strokeWidth = 3.dp,
+                                trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             )
+                            if (taskState.phase == TaskState.Phase.DOWNLOADING) {
+                                Icon(painterResource(Res.drawable.close_24px), null, modifier = Modifier.size(16.dp))
+                            }
                         }
                     }
                 }
-            } else if (modMeta != null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    IconButton(
-                        onClick = { modMeta.update() },
-                        modifier = Modifier.size(32.dp)
+                modMeta != null -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Icon(
-                            painterResource(Res.drawable.refresh_24px),
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
+                        IconButton(onClick = { modMeta.update() }, modifier = Modifier.size(32.dp)) {
+                            Icon(painterResource(Res.drawable.refresh_24px), null, modifier = Modifier.size(20.dp))
+                        }
+
+                        IconButton(onClick = { modMeta.uninstall() }, modifier = Modifier.size(32.dp)) {
+                            Icon(painterResource(Res.drawable.delete_24px), null, modifier = Modifier.size(20.dp))
+                        }
+
+                        Switch(
+                            checked = modMeta.enabled ?: false,
+                            onCheckedChange = { isEnabled ->
+                                if (isEnabled) modMeta.enable() else modMeta.disable()
+                            },
+                            modifier = Modifier.scale(0.8f)
                         )
                     }
-
-                    IconButton(
-                        onClick = { modMeta.uninstall() },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            painterResource(Res.drawable.delete_24px),
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Switch(
-                        checked =
-                            modMeta.enabled!!,
-                        onCheckedChange = { isEnabled ->
-                            if (isEnabled) modMeta.enable() else modMeta.disable()
-                        },
-                        modifier = Modifier.scale(0.8f)
-                    )
                 }
-            } else {
-                Button(
-                    onClick = { RepoMods.installMod(mod.id, mod.artifacts.maxBy { it.version }.version) },
-                    modifier = Modifier.requiredSize(width = 40.dp, height = 40.dp).align(Alignment.CenterVertically),
-                    contentPadding = PaddingValues(8.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(
-                            Res.drawable.download_24px
-                        ), contentDescription = null, modifier = Modifier.fillMaxSize()
-                    )
+                else -> {
+                    Button(
+                        onClick = { RepoMods.installMod(mod.id, mod.artifacts.maxBy { it.version }.version) },
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = PaddingValues(8.dp)
+                    ) {
+                        Icon(painterResource(Res.drawable.download_24px), null, modifier = Modifier.fillMaxSize())
+                    }
                 }
             }
         }
     }
 }
-
-

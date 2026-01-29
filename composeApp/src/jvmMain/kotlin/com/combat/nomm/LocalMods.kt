@@ -2,108 +2,123 @@ package com.combat.nomm
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 object LocalMods {
-    val json = Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-        prettyPrint = true
-    }
-
-    val mods: StateFlow<Map<String, ModMeta>>
-        field = MutableStateFlow(loadInstalledModMetas(File(SettingsManager.gameFolder, "BepInEx")))
+    private val _mods = MutableStateFlow(loadInstalledModMetas(File(SettingsManager.gameFolder, "BepInEx")))
+    val mods: StateFlow<Map<String, ModMeta>> = _mods
 
     fun loadInstalledModMetas(bepinexFolder: File): Map<String, ModMeta> {
+        if (!bepinexFolder.exists()) return emptyMap()
 
-        bepinexFolder.mkdir()
-        if (!bepinexFolder.exists() || !bepinexFolder.isDirectory) return emptyMap()
-        val pluginsFolder = File(bepinexFolder, "plugins")
-        val disabledPlugins = File(bepinexFolder, "disabledPlugins")
+        val plugins = File(bepinexFolder, "plugins").apply { mkdir() }
+        val disabled = File(bepinexFolder, "disabledPlugins").apply { mkdir() }
+        val foundMods = mutableMapOf<String, ModMeta>()
 
-        pluginsFolder.mkdir()
-        disabledPlugins.mkdir()
+        fun scanFolder(root: File, isEnabled: Boolean) {
+            root.listFiles { it.isDirectory }?.forEach { folder ->
+                val jsonFile = File(folder, "meta.json")
+                if (jsonFile.exists()) {
+                    val meta = runCatching { RepoMods.json.decodeFromString<ModMeta>(jsonFile.readText()) }.getOrNull()
+                        ?: ModMeta(folder.name, null, null)
 
-        fun load(rootFolder: File, enabled: Boolean): Map<String, ModMeta> {
+                    foundMods[meta.id] = meta.copy(file = folder, enabled = isEnabled)
 
-            return rootFolder.listFiles { file -> file.isDirectory }
-                ?.associate { folder ->
-                    val jsonFile = File(folder, "meta.json")
-
-                    val modMeta = if (jsonFile.exists()) {
-                        json.decodeFromString<ModMeta>(jsonFile.readText())
-                    } else {
-                        val meta =
-                            ModMeta(id = folder.name, artifact = null, cachedExtension = null)
-                        File(folder, "meta.json").writeText(
-                            json.encodeToString(meta)
-                        )
-                        meta
-                    }
-                    modMeta.file = folder
-                    modMeta.enabled = enabled
-                    modMeta.id to modMeta
-                } ?: emptyMap()
+                    val addonFolder = File(folder, "addons")
+                    if (addonFolder.exists()) scanFolder(addonFolder, isEnabled)
+                }
+            }
         }
 
-        return load(pluginsFolder, true) + load(disabledPlugins, false)
+        scanFolder(plugins, true)
+        scanFolder(disabled, false)
+        return foundMods
+    }
+
+    fun updateModState(id: String, meta: ModMeta?) {
+        _mods.update { current ->
+            val newMap = current.toMutableMap()
+            if (meta == null) newMap.remove(id) else newMap[id] = meta
+            newMap
+        }
+    }
+
+    fun refresh() {
+        _mods.value = loadInstalledModMetas(File(SettingsManager.gameFolder, "BepInEx"))
     }
 }
 
 @Serializable
 data class ModMeta(
-    var id: String,
-    var artifact: Artifact?,
-    var cachedExtension: Extension?,
-    @Transient var enabled: Boolean? = null,
-    @Transient var file: File? = null,
+    val id: String,
+    val artifact: Artifact?,
+    val cachedExtension: Extension?,
+    @Transient val enabled: Boolean? = null,
+    @Transient val file: File? = null,
 ) {
     fun enable() {
-        if (artifact?.extends != null) {
-            artifact!!.extends!!.id
-            LocalMods.mods.value[id]?.enable()
+        val currentSelf = LocalMods.mods.value[id] ?: this
+        if (currentSelf.enabled == true) return
+
+        val parentId = artifact?.extends?.id
+        val parentMod = parentId?.let { LocalMods.mods.value[it] }
+        val newFile: File
+
+        if (parentMod != null) {
+            parentMod.enable()
+
+            val updatedParent = LocalMods.mods.value[parentId]
+            val addonDir = File(updatedParent?.file ?: parentMod.file, "addons").apply { mkdir() }
+
+            newFile = File(addonDir, id)
+            file?.moveTo(newFile)
+        } else {
+            newFile = File(SettingsManager.bepInExFolder, "plugins/$id")
+            file?.moveTo(newFile)
         }
-        artifact?.dependencies?.forEach {
-            it.id
-            LocalMods.mods.value[id]?.enable()
-        }
-        if (enabled == null) {
-            enabled = (file!!.parent != "disabledPlugins")
-        }
-        if (!enabled!!) {
-            val destination = File(SettingsManager.bepInExFolder, "plugins")
-            file?.moveTo(destination)
-            file = destination
+
+        val updatedMeta = this.copy(file = newFile, enabled = true)
+        LocalMods.updateModState(id, updatedMeta)
+
+        artifact?.dependencies?.forEach { dep ->
+            LocalMods.mods.value[dep.id]?.enable()
         }
     }
-    
+
     fun disable() {
-        if (enabled == null) {
-            enabled = (file!!.parent == "plugins")
+        val currentSelf = LocalMods.mods.value[id] ?: this
+        if (currentSelf.enabled == false) return
+
+        val addonFolder = File(file, "addons")
+        if (addonFolder.exists()) {
+            addonFolder.listFiles { it.isDirectory }?.forEach { folder ->
+                LocalMods.mods.value[folder.name]?.disable()
+            }
         }
-        if (enabled!!) {
-            val destination = File(SettingsManager.bepInExFolder, "disabledPlugins")
-            file?.moveTo(destination)
-            file = destination
-        }
+
+        val destination = File(SettingsManager.bepInExFolder, "disabledPlugins/$id")
+        file?.moveTo(destination)
+
+        val updatedMeta = this.copy(file = destination, enabled = false)
+        LocalMods.updateModState(id, updatedMeta)
     }
 
     fun uninstall() {
-        TODO("Not yet implemented")
+        file?.deleteRecursively()
+        LocalMods.updateModState(id, null)
     }
-
-    fun update() {
-        TODO("Not yet implemented")
-    }
+    
+    fun update() {}
 }
 
 fun File.moveTo(destination: File) {
     runCatching {
+        destination.parentFile?.mkdir()
         Files.move(
             toPath(),
             destination.toPath(),
