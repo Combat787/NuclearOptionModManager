@@ -86,8 +86,8 @@ fun fetchFakeManifest(): Manifest {
         }
     }
 
-    val mods = List(Random.nextInt(30, 200)) { index ->
-        val versions = generateVersionHistory(Random.nextInt(3, 8))
+    val mods = List(Random.nextInt(100, 300)) { index ->
+        val versions = generateVersionHistory(Random.nextInt(10, 30))
         val pkgName = "${latinWords.random()} ${latinWords.random()}"
         val pkgId = "$pkgName$index"
         Triple(versions, pkgName, pkgId)
@@ -103,9 +103,9 @@ fun fetchFakeManifest(): Manifest {
         Extension(
             id = pkgId,
             displayName = pkgName.replaceFirstChar { it.uppercase() },
-            description = generateLoremParagraph(Random.nextInt(2, 5)),
+            description = generateLoremParagraph(Random.nextInt(10, 30)),
             tags = listOf("QOL", "RANDOM", "UNITS").shuffled().take(Random.nextInt(1, 3)),
-            infoUrl = "https://example.com/$repoAuthor/$pkgName/README.md",
+            infoUrl = "https://example.com/$repoAuthor/$pkgName/README.md".replace(" ", ""),
             authors = authors,
             artifacts = versions.map { ver ->
                 Artifact(
@@ -114,7 +114,7 @@ fun fetchFakeManifest(): Manifest {
                     category = listOf("Release", "Beta", "Alpha").random(),
                     type = "Mod",
                     gameVersion = "0.${Random.nextInt(30, 32)}",
-                    downloadUrl = "https://example.com/$repoAuthor/$pkgName-$ver.zip",
+                    downloadUrl = "https://example.com/$repoAuthor/$pkgName-$ver.zip".replace(" ", ""),
                     hash = UUID.randomUUID().toString().replace("-", ""),
                     extends = if (Random.nextBoolean()) run {
                         val depend = mods.random()
@@ -123,14 +123,14 @@ fun fetchFakeManifest(): Manifest {
                             version = depend.first.random()
                         )
                     } else null,
-                    dependencies = List(Random.nextInt(0, 3)) {
+                    dependencies = List(Random.nextInt(10, 20)) {
                         val depend = mods.random()
                         PackageReference(
                             id = depend.third,
                             version = depend.first.random()
                         )
                     },
-                    incompatibilities = List(Random.nextInt(0, 3)) {
+                    incompatibilities = List(Random.nextInt(10, 20)) {
                         val depend = mods.random()
                         PackageReference(
                             id = depend.third,

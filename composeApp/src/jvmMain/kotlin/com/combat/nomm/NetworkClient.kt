@@ -35,7 +35,9 @@ object NetworkClient {
         runCatching {
             val response = client.get(url)
             if (response.status.isSuccess()) {
-                response.body<List<Extension>>()
+                val manifest = response.body<List<Extension>>()
+                SettingsManager.updateConfig(SettingsManager.config.value.copy(cachedManifest = manifest))
+                manifest
             } else {
                 null
             }

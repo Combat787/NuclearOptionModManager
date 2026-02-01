@@ -4,12 +4,11 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -43,30 +42,24 @@ fun ModDetailScreen(
     onOpenMod: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    val mod = RepoMods.mods.collectAsState().value.find { it.id == modId } ?: run { onBack(); return }
+    val mod = RepoMods.mods.collectAsState().value.find { it.id == modId }
+        ?: SettingsManager.config.value.cachedManifest.find { it.id == modId } ?: run { onBack(); return }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         val backStack = rememberNavBackStack(ModNavigation.config, ModNavigation.Details)
         val currentKey = backStack.lastOrNull() ?: ModNavigation.Details
 
         ModTitleCard(
-            mod = mod,
-            onBack = onBack
+            mod = mod, onBack = onBack
         )
 
         ModNavigationBar(currentKey, backStack)
 
         Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.medium)
+            modifier = Modifier.weight(1f).fillMaxWidth().clip(MaterialTheme.shapes.medium)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
         ) {
             NavDisplay(
@@ -85,8 +78,7 @@ fun ModDetailScreen(
                     entry<ModNavigation.Dependencies> { args ->
                         ModVersionDependenciesContent(mod, args.version, onOpenMod)
                     }
-                }
-            )
+                })
         }
     }
 }
@@ -114,26 +106,38 @@ fun ModTitleCard(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = buildAnnotatedString {
-                            if (mod.authors.isNotEmpty()) {
-                                append("by ")
-                                withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                                    append(mod.authors.joinToString(", "))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = buildAnnotatedString {
+                                if (mod.authors.isNotEmpty()) {
+                                    append("by ")
+                                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
+                                        append(mod.authors.joinToString(", "))
+                                    }
+                                }
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        mod.tags.forEach { tag ->
+                            DisableSelection {
+                                Surface(shape = CircleShape) {
+                                    Text(
+                                        text = tag,
+                                        modifier = Modifier.padding(horizontal = 8.dp, 2.dp).clip(CircleShape),
+                                        style = MaterialTheme.typography.labelMedium,
+                                    )
                                 }
                             }
-                        },
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        }
+                    }
                 }
             }
 
             ModHeaderActions(mod)
 
             IconButton(
-                onClick = onBack,
-                colors = IconButtonDefaults.iconButtonColors(
+                onClick = onBack, colors = IconButtonDefaults.iconButtonColors(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
@@ -157,22 +161,18 @@ private fun ModHeaderActions(
     val modMeta = installedMods[mod.id]
 
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         when {
             taskState != null -> {
                 val animatedProgress by animateFloatAsState(
-                    targetValue = taskState.progress ?: 0f,
-                    label = "downloadProgress"
+                    targetValue = taskState.progress ?: 0f, label = "downloadProgress"
                 )
 
                 FilledTonalIconButton(
                     onClick = {
                         if (taskState.phase == TaskState.Phase.DOWNLOADING) taskState.cancel()
-                    },
-                    modifier = Modifier.size(40.dp),
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    }, modifier = Modifier.size(40.dp), colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -198,14 +198,12 @@ private fun ModHeaderActions(
 
             modMeta != null -> {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
 
                     if (modMeta.hasUpdate) {
                         IconButton(
-                            onClick = { modMeta.update() },
-                            modifier = Modifier.size(32.dp)
+                            onClick = { modMeta.update() }, modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
                                 painterResource(Res.drawable.refresh_24px),
@@ -217,8 +215,7 @@ private fun ModHeaderActions(
                     }
 
                     IconButton(
-                        onClick = { modMeta.uninstall() },
-                        modifier = Modifier.size(32.dp)
+                        onClick = { modMeta.uninstall() }, modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             painterResource(Res.drawable.delete_24px),
@@ -229,11 +226,9 @@ private fun ModHeaderActions(
                     }
 
                     Switch(
-                        checked = modMeta.enabled ?: false,
-                        onCheckedChange = { isEnabled ->
+                        checked = modMeta.enabled ?: false, onCheckedChange = { isEnabled ->
                             if (isEnabled) modMeta.enable() else modMeta.disable()
-                        },
-                        modifier = Modifier.scale(0.75f)
+                        }, modifier = Modifier.scale(0.75f)
                     )
                 }
             }
@@ -306,22 +301,15 @@ private fun NavItem(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val backgroundColor =
-        if (selected) MaterialTheme.colorScheme.secondaryContainer
-        else Color.Transparent
+    val backgroundColor = if (selected) MaterialTheme.colorScheme.secondaryContainer
+    else Color.Transparent
 
-    val contentColor =
-        if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-        else MaterialTheme.colorScheme.onSurfaceVariant
+    val contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+    else MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(
-        modifier = modifier
-            .fillMaxHeight()
-            .clip(CircleShape)
-            .background(backgroundColor)
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        contentAlignment = Alignment.Center
+        modifier = modifier.fillMaxHeight().clip(CircleShape).background(backgroundColor).clickable(onClick = onClick)
+            .padding(8.dp), contentAlignment = Alignment.Center
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -346,31 +334,46 @@ private fun NavItem(
 @Composable
 fun ModDetailsContent(mod: Extension) {
     SelectionContainer {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        val state = rememberScrollState()
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (mod.infoUrl.isNotEmpty()) {
-                Text(
-                    buildAnnotatedString {
-                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Info: ") }
-                        withLink(LinkAnnotation.Url(mod.infoUrl)) {
-                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                                append(mod.infoUrl)
+            Column(
+                modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(state),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+
+                Spacer(Modifier.height(0.dp))
+                if (mod.infoUrl.isNotEmpty()) {
+                    Text(
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Info: ") }
+                            withLink(LinkAnnotation.Url(mod.infoUrl)) {
+                                withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
+                                    append(mod.infoUrl)
+                                }
                             }
-                        }
-                    },
-                    style = MaterialTheme.typography.bodyMedium
+                        }, style = MaterialTheme.typography.bodyMedium
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                }
+                Text(
+                    text = mod.description,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(Modifier.height(0.dp))
             }
-
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            Text(
-                text = mod.description,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
+            VerticalScrollbar(
+                modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 16.dp),
+                adapter = rememberScrollbarAdapter(state),
+                style = defaultScrollbarStyle().copy(
+                    unhoverColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    hoverColor = MaterialTheme.colorScheme.primary,
+                    thickness = 4.dp
+                )
             )
         }
     }
@@ -388,20 +391,35 @@ fun ModVersionsContent(
     val mods by LocalMods.mods.collectAsState()
     val modMeta = mods[mod.id]
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    val state = rememberLazyListState()
+    Row(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(sortedArtifacts) { artifact ->
-            val isInstalled = modMeta?.artifact?.version == artifact.version
-            ArtifactCard(
-                artifact = artifact,
-                isInstalled = isInstalled,
-                onInstall = { RepoMods.installMod(mod.id, artifact.version) },
-                onViewDependencies = { onOpenDependencies(artifact.version) }
-            )
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            contentPadding = PaddingValues(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            state = state,
+        ) {
+            items(sortedArtifacts) { artifact ->
+                val isInstalled = modMeta?.artifact?.version == artifact.version
+                ArtifactCard(
+                    artifact = artifact,
+                    isInstalled = isInstalled,
+                    onInstall = { RepoMods.installMod(mod.id, artifact.version) },
+                    onViewDependencies = { onOpenDependencies(artifact.version) })
+            }
         }
+        VerticalScrollbar(
+            modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 16.dp),
+            adapter = rememberScrollbarAdapter(state),
+            style = defaultScrollbarStyle().copy(
+                unhoverColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                hoverColor = MaterialTheme.colorScheme.primary,
+                thickness = 4.dp
+            )
+        )
     }
 }
 
@@ -413,13 +431,9 @@ fun ArtifactCard(
     onViewDependencies: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = if (isInstalled) MaterialTheme.colorScheme.surfaceVariant
-        else MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.medium,
-        border = BorderStroke(
-            1.dp,
-            if (isInstalled) MaterialTheme.colorScheme.outline
+        modifier = Modifier.fillMaxWidth(), color = if (isInstalled) MaterialTheme.colorScheme.surfaceVariant
+        else MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.medium, border = BorderStroke(
+            1.dp, if (isInstalled) MaterialTheme.colorScheme.outline
             else MaterialTheme.colorScheme.outlineVariant
         )
     ) {
@@ -430,8 +444,7 @@ fun ArtifactCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -447,8 +460,7 @@ fun ArtifactCard(
                         )
                         if (isInstalled) {
                             Surface(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = CircleShape
+                                color = MaterialTheme.colorScheme.primary, shape = CircleShape
                             ) {
                                 DisableSelection {
                                     Text(
@@ -486,18 +498,14 @@ fun ArtifactCard(
                 }
 
                 VerticalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    modifier = Modifier.padding(vertical = 4.dp)
+                    color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp)
                 )
 
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     FilledTonalIconButton(
-                        onClick = onInstall,
-                        enabled = !isInstalled,
-                        modifier = Modifier.size(40.dp)
+                        onClick = onInstall, enabled = !isInstalled, modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             painter = painterResource(Res.drawable.download_24px),
@@ -507,8 +515,7 @@ fun ArtifactCard(
                     }
 
                     IconButton(
-                        onClick = onViewDependencies,
-                        modifier = Modifier.size(40.dp)
+                        onClick = onViewDependencies, modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             painter = painterResource(Res.drawable.rule_24px),
@@ -531,54 +538,69 @@ fun ModVersionDependenciesContent(
     onOpenMod: (String) -> Unit,
 ) {
     val artifact = mod.artifacts.find { it.version == version }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    val state = rememberLazyListState()
+    Row(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        if (artifact == null) {
-            item { Text("Artifact version not found.", color = MaterialTheme.colorScheme.error) }
-            return@LazyColumn
-        }
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            contentPadding = PaddingValues(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            state = state,
+        ) {
+            if (artifact == null) {
+                item { Text("Artifact version not found.", color = MaterialTheme.colorScheme.error) }
+                return@LazyColumn
+            }
 
-        item {
-            DependencyHeader("Extends", MaterialTheme.colorScheme.primary)
-        }
-
-        if (artifact.extends != null) {
             item {
-                DependencyItemCard(artifact.extends, onOpenMod, isIncompatible = false)
+                DependencyHeader("Extends", MaterialTheme.colorScheme.primary)
             }
-        } else {
-            item { EmptySectionText("None") }
-        }
 
-        item {
-            Spacer(Modifier.height(8.dp))
-            DependencyHeader("Dependencies", MaterialTheme.colorScheme.primary)
-        }
-
-        if (artifact.dependencies.isNotEmpty()) {
-            items(artifact.dependencies) { dep ->
-                DependencyItemCard(dep, onOpenMod, isIncompatible = false)
+            if (artifact.extends != null) {
+                item {
+                    DependencyItemCard(artifact.extends, onOpenMod, isIncompatible = false)
+                }
+            } else {
+                item { EmptySectionText("None") }
             }
-        } else {
-            item { EmptySectionText("None") }
-        }
 
-        item {
-            Spacer(Modifier.height(8.dp))
-            DependencyHeader("Incompatibilities", MaterialTheme.colorScheme.error)
-        }
-
-        if (artifact.incompatibilities.isNotEmpty()) {
-            items(artifact.incompatibilities) { inc ->
-                DependencyItemCard(inc, onOpenMod, isIncompatible = true)
+            item {
+                Spacer(Modifier.height(8.dp))
+                DependencyHeader("Dependencies", MaterialTheme.colorScheme.primary)
             }
-        } else {
-            item { EmptySectionText("None") }
+
+            if (artifact.dependencies.isNotEmpty()) {
+                items(artifact.dependencies) { dep ->
+                    DependencyItemCard(dep, onOpenMod, isIncompatible = false)
+                }
+            } else {
+                item { EmptySectionText("None") }
+            }
+
+            item {
+                Spacer(Modifier.height(8.dp))
+                DependencyHeader("Incompatibilities", MaterialTheme.colorScheme.error)
+            }
+
+            if (artifact.incompatibilities.isNotEmpty()) {
+                items(artifact.incompatibilities) { inc ->
+                    DependencyItemCard(inc, onOpenMod, isIncompatible = true)
+                }
+            } else {
+                item { EmptySectionText("None") }
+            }
         }
+        VerticalScrollbar(
+            modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 16.dp),
+            adapter = rememberScrollbarAdapter(state),
+            style = defaultScrollbarStyle().copy(
+                unhoverColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                hoverColor = MaterialTheme.colorScheme.primary,
+                thickness = 4.dp
+            )
+        )
     }
 }
 

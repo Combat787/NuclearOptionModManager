@@ -71,10 +71,47 @@ fun MainNavigationRail(
             )
             Spacer(modifier = Modifier.weight(1f))
 
-
+            if (!isBepInExInstalled) {
+                val bepinexState by Installer.bepinexStatus.collectAsState()
+                FloatingActionButton(
+                    onClick = { RepoMods.downloadBepInEx() },
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        if (bepinexState == null) {
+                            Icon(
+                                painter = painterResource(Res.drawable.download_24px),
+                                contentDescription = null
+                            )
+                        } else {
+                            CircularProgressIndicator(
+                                progress = { bepinexState!!.progress ?: 1f },
+                                modifier = Modifier.fillMaxSize(),
+                                strokeWidth = 4.dp,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Install\nBepInEx",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 2,
+                            minLines = 2
+                        )
+                    }
+                }
+            }
             if (isGameExeFound) {
+                val state = LocalWindowState.current
                 FloatingActionButton(
                     onClick = {
+                        state.isMinimized = true
                         val exeFile = File(SettingsManager.gameFolder, "NuclearOption.exe")
                         if (exeFile.exists()) {
                             scope.launch(Dispatchers.IO) {
@@ -91,58 +128,15 @@ fun MainNavigationRail(
                     },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(16.dp)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(8.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(Res.drawable.play_circle_24px),
-                            contentDescription = null
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Launch\nNuclear Option",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 2,
-                            minLines = 2
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(Res.drawable.play_circle_24px),
+                        contentDescription = null
+                    )
+
                 }
             }
 
-            if (!isBepInExInstalled) {
-                FloatingActionButton(
-                    onClick = { RepoMods.downloadBepInEx() },
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(8.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(Res.drawable.download_24px),
-                            contentDescription = null
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Install\nBepInEx",
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 2,
-                            minLines = 2
-                        )
-                    }
-                }
-            }
         }
     }
 }

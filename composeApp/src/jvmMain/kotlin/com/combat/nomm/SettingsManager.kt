@@ -27,6 +27,7 @@ data class Configuration(
     val contrast: Contrast = Contrast.Default,
     val fakeManifest: Boolean = false,
     val manifestUrl: String = "https://kopterbuzz.github.io/NOModManifestTesting/manifest/manifest.json",
+    val cachedManifest: Manifest = emptyList(),
     @Serializable(with = ColorSerializer::class) val themeColor: Color = Color.Green,
 )
 

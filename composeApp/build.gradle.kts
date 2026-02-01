@@ -46,6 +46,7 @@ kotlin {
             implementation("org.tukaani:xz:1.11")
             implementation("com.github.junrar:junrar:7.5.7")
             implementation("org.slf4j:slf4j-simple:2.0.17")
+            implementation("com.formdev:flatlaf:3.7")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -67,9 +68,9 @@ compose.desktop {
 
         nativeDistributions {
 
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            targetFormats(TargetFormat.Dmg, TargetFormat.Exe, TargetFormat.Msi, TargetFormat.Deb)
 
-            packageVersion = "1.0.0"
+            packageVersion = "1.2.0"
             packageName = "Nuclear Option Mod Manager"
             vendor = "Combat"
             description = "A Mod Manager For Nuclear Option"
@@ -83,15 +84,18 @@ compose.desktop {
                 menu = true
                 
                 menuGroup = "Combat"
+                iconFile = project.file("../icons/iconico.ico")
                 upgradeUuid = "fdac94b6-2774-4802-96c4-67ada2e62a57"
             }
 
             macOS {
                 bundleID = "com.combat.nomm"
+                iconFile = project.file("../icons/iconicns.icns")
             }
 
             linux {
                 shortcut = true
+                iconFile = project.file("../icons/iconpng.png")
             }
 
             buildTypes.release {

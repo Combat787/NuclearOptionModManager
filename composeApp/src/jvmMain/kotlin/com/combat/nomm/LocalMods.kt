@@ -34,7 +34,7 @@ object LocalMods {
         field = MutableStateFlow(false)
     
     val mods: StateFlow<Map<String, ModMeta>>
-        field = MutableStateFlow(loadInstalledModMetas(File(SettingsManager.gameFolder, "BepInEx")))
+        field = MutableStateFlow(emptyMap())
     
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -108,12 +108,14 @@ object LocalMods {
         }
     }
 
-    fun loadInstalledModMetas(bepinexFolder: File): Map<String, ModMeta> {
-        if (!bepinexFolder.exists()) {
-            isBepInExInstalled.value = false
-            return emptyMap()
-        } else  { 
+    fun loadInstalledModMetas() {
+        val bepinexFolder = SettingsManager.bepInExFolder
+        if (bepinexFolder?.exists() == true) {
             isBepInExInstalled.value = true
+        } else  { 
+            isBepInExInstalled.value = false
+            mods.update { emptyMap() }
+            return
         }
 
         isGameExeFound.value = File(SettingsManager.gameFolder,"NuclearOption.exe").exists()
@@ -180,10 +182,10 @@ object LocalMods {
             } else {
                 Pair(
                     string,
-                    meta.copy(cachedExtension = repoMod, hasUpdate = version?.let { it <= artifact.version } ?: true))
+                    meta.copy(hasUpdate = version?.let { it <= artifact.version } ?: true))
             }
         }
-        return foundMods
+        mods.update { foundMods }
     }
 
     fun updateModState(id: String, meta: ModMeta?) {
@@ -195,9 +197,7 @@ object LocalMods {
     }
 
     fun refresh() {
-        val bepInExDir = File(SettingsManager.gameFolder, "BepInEx")
-        val freshMetas = loadInstalledModMetas(bepInExDir)
-        mods.update { freshMetas }
+        loadInstalledModMetas()
     }
 }
 
@@ -205,7 +205,6 @@ object LocalMods {
 data class ModMeta(
     val id: String,
     val artifact: Artifact? = null,
-    val cachedExtension: Extension? = null,
     @Transient val enabled: Boolean? = null,
     @Transient val file: File? = null,
     @Transient val isUnidentified: Boolean = false,

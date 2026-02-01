@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.json.Json
@@ -38,9 +39,9 @@ object RepoMods {
                 val fetched = if (SettingsManager.config.value.fakeManifest) {
                     fetchFakeManifest()
                 } else {
-                    NetworkClient.fetchManifest(SettingsManager.config.value.manifestUrl)
+                    NetworkClient.fetchManifest(SettingsManager.config.value.manifestUrl) ?: SettingsManager.config.value.cachedManifest
                 }
-                if (fetched != null) mods.value = fetched
+                mods.value = fetched
             } finally {
                 isLoading.value = false
                 mutex.unlock()
@@ -48,12 +49,29 @@ object RepoMods {
         }
     }
 
+    val launchOptionDialog = MutableStateFlow(false)
+
     fun downloadBepInEx() {
         val url = "https://github.com/BepInEx/BepInEx/releases/download/v5.4.23.4/BepInEx_win_x64_5.4.23.4.zip"
-        SettingsManager.gameFolder?.let {
-            Installer.installMod("BepInEx", url, it, true) {
-                LocalMods.refresh()
-            }
+        SettingsManager.gameFolder ?: return
+        if (LocalMods.isBepInExInstalled.value) {
+            return
+        }
+
+        if (System.getProperty("os.name").lowercase().let {
+                !(it.contains("win") || it.contains("mac"))
+            }) {
+            launchOptionDialog.update { true }
+        }
+        //applyNuclearOptionFix()
+        
+        val configDir = File(SettingsManager.gameFolder, "BepInEx/config")
+        configDir.mkdirs()
+        val config = File(configDir, "BepInEx.cfg")
+        config.createNewFile()
+        config.writeText("")
+        Installer.installMod("BepInEx", url, SettingsManager.gameFolder, true) {
+            LocalMods.refresh()
         }
     }
 
@@ -86,12 +104,11 @@ object RepoMods {
 
         if (dir.exists()) dir.deleteRecursively()
         if (!dir.mkdirs()) return
-        
+
         Installer.installMod(extension.id, targetArtifact.downloadUrl, dir) {
             val metaData = ModMeta(
                 id = extension.id,
                 artifact = targetArtifact,
-                cachedExtension = extension,
             )
 
             runCatching {
