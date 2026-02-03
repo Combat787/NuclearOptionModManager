@@ -91,9 +91,9 @@ object RepoMods {
             ?: return
 
         val installedMod = LocalMods.mods.value[id]
-        if (installedMod != null && version == null) {
+        if (installedMod != null) {
             val currentVersion = installedMod.artifact?.version
-            if (currentVersion != null && currentVersion == targetArtifact.version) return
+            if (currentVersion != null && currentVersion >= targetArtifact.version) return
         }
 
         targetArtifact.dependencies.forEach { installMod(it.id, it.version, processing) }
