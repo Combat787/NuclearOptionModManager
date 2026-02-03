@@ -35,7 +35,7 @@ object NetworkClient {
         runCatching {
             val response = client.get(url)
             if (response.status.isSuccess()) {
-                val manifest = response.body<List<Extension>>()
+                val manifest = RepoMods.json.decodeFromString<Manifest>(response.body())
                 SettingsManager.updateConfig(SettingsManager.config.value.copy(cachedManifest = manifest))
                 manifest
             } else {

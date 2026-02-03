@@ -106,7 +106,7 @@ fun ModTitleCard(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(modifier = Modifier.height(IntrinsicSize.Min),horizontalArrangement = Arrangement.spacedBy(8.dp),verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = buildAnnotatedString {
                                 if (mod.authors.isNotEmpty()) {
@@ -119,6 +119,12 @@ fun ModTitleCard(
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
+
+                        Icon(painterResource(Res.drawable.download_24px), null, Modifier.size(24.dp))
+                        Text(mod.downloadCount.toString(), style = MaterialTheme.typography.bodyMedium)
+                        
+                        VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
                         mod.tags.forEach { tag ->
                             DisableSelection {
                                 Surface(shape = CircleShape) {
@@ -149,7 +155,6 @@ fun ModTitleCard(
         }
     }
 }
-
 @Composable
 private fun ModHeaderActions(
     mod: Extension,
@@ -160,97 +165,108 @@ private fun ModHeaderActions(
     val taskState = installStatuses[mod.id]
     val modMeta = installedMods[mod.id]
 
+    val controlSize = 40.dp
+    val iconSize = 24.dp
+
     Row(
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         when {
             taskState != null -> {
                 val animatedProgress by animateFloatAsState(
-                    targetValue = taskState.progress ?: 0f, label = "downloadProgress"
+                    targetValue = taskState.progress ?: 1f,
+                    label = "downloadProgress"
                 )
 
-                FilledTonalIconButton(
-                    onClick = {
-                        if (taskState.phase == TaskState.Phase.DOWNLOADING) taskState.cancel()
-                    }, modifier = Modifier.size(40.dp), colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Box(
+                    modifier = Modifier.size(controlSize),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(
-                            progress = { animatedProgress },
-                            modifier = Modifier.fillMaxSize(),
-                            strokeWidth = 3.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                    CircularProgressIndicator(
+                        progress = { animatedProgress },
+                        modifier = Modifier.size(48.dp),
+                        strokeWidth = 3.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+
+                    IconButton(
+                        onClick = {
+                            if (taskState.phase == TaskState.Phase.DOWNLOADING) taskState.cancel()
+                        },
+                        modifier = Modifier.size(controlSize)
+                    ) {
+                        Icon(
+                            painter = if (taskState.phase == TaskState.Phase.DOWNLOADING)
+                                painterResource(Res.drawable.close_24px)
+                            else
+                                painterResource(Res.drawable.unarchive_24px),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
-                        if (taskState.phase == TaskState.Phase.DOWNLOADING) {
-                            Icon(
-                                painterResource(Res.drawable.close_24px),
-                                contentDescription = "Cancel",
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
                     }
                 }
             }
 
             modMeta != null -> {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-
                     if (modMeta.hasUpdate) {
                         IconButton(
-                            onClick = { modMeta.update() }, modifier = Modifier.size(32.dp)
+                            onClick = { modMeta.update() },
+                            modifier = Modifier.size(controlSize)
                         ) {
                             Icon(
                                 painterResource(Res.drawable.refresh_24px),
                                 contentDescription = "Update",
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                modifier = Modifier.size(iconSize),
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
 
                     IconButton(
-                        onClick = { modMeta.uninstall() }, modifier = Modifier.size(32.dp)
+                        onClick = { modMeta.uninstall() },
+                        modifier = Modifier.size(controlSize)
                     ) {
                         Icon(
                             painterResource(Res.drawable.delete_24px),
                             contentDescription = "Uninstall",
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(iconSize),
                             tint = MaterialTheme.colorScheme.error
                         )
                     }
 
                     Switch(
-                        checked = modMeta.enabled ?: false, onCheckedChange = { isEnabled ->
+                        checked = modMeta.enabled ?: false,
+                        onCheckedChange = { isEnabled ->
                             if (isEnabled) modMeta.enable() else modMeta.disable()
-                        }, modifier = Modifier.scale(0.75f)
+                        },
+                        modifier = Modifier
+                            .padding(start = 4.dp)
+                            .scale(0.8f)
                     )
                 }
             }
 
             else -> {
-                Button(
+                IconButton(
                     onClick = {
                         mod.artifacts.maxByOrNull { it.version }?.let { latest ->
                             RepoMods.installMod(mod.id, latest.version)
                         }
                     },
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.height(36.dp)
+                    modifier = Modifier.size(controlSize)
                 ) {
                     Icon(
                         painterResource(Res.drawable.download_24px),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        contentDescription = "Install",
+                        modifier = Modifier.size(iconSize),
+                        tint = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Install", style = MaterialTheme.typography.labelLarge)
                 }
             }
         }

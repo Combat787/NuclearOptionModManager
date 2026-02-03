@@ -1,7 +1,9 @@
 package com.combat.nomm
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.util.*
+import java.util.concurrent.ThreadLocalRandom
 import kotlin.random.Random
 
 typealias Manifest = List<Extension>
@@ -14,7 +16,8 @@ data class Extension(
     val tags: List<String> = emptyList(),
     val infoUrl: String,
     val authors: List<String>,
-    val artifacts: List<Artifact>
+    val artifacts: List<Artifact>,
+    val downloadCount: Int? = null,
 )
 
 @Serializable
@@ -22,7 +25,7 @@ data class Artifact(
     val fileName: String,
     val version: Version,
     val category: String,
-    val type: String,
+    val type: String? = null,
     val gameVersion: String? = null,
     val downloadUrl: String,
     val hash: String? = null,
@@ -66,79 +69,70 @@ class Version(vararg components: Int) : Comparable<Version> {
     }
 }
 
-fun fetchFakeManifest(): Manifest {
-    val latinWords = listOf(
+
+fun fetchFakeManifest(): List<Extension> {
+    val latinWords = arrayOf(
         "lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit",
         "terra", "nova", "ignis", "aqua", "ventus", "lux", "umbra", "vita"
     )
 
-    fun generateLoremParagraph(sentenceCount: Int): String {
-        return (1..sentenceCount).joinToString(" ") {
-            val words = (5..15).map { latinWords.random() }.toMutableList()
-            words[0] = words[0].replaceFirstChar { it.uppercase() }
-            words.joinToString(" ") + "."
-        }
-    }
+    val rnd = ThreadLocalRandom.current()
+    val modCount = rnd.nextInt(1000, 3000)
 
-    fun generateVersionHistory(versionCount: Int): List<Version> {
-        return List(versionCount) {
-            Version(1, it, 0)
-        }
-    }
+    val manifest = ArrayList<Extension>(modCount)
+    val allIds = Array(modCount) { i -> "pkg_$i" }
+    val upperLatin = Array(latinWords.size) { latinWords[it].uppercase() }
 
-    val mods = List(Random.nextInt(100, 300)) { index ->
-        val versions = generateVersionHistory(Random.nextInt(10, 30))
-        val pkgName = "${latinWords.random()} ${latinWords.random()}"
-        val pkgId = "$pkgName$index"
-        Triple(versions, pkgName, pkgId)
-    }
+    for (i in 0 until modCount) {
+        val pkgId = allIds[i]
+        val author = upperLatin[rnd.nextInt(16)]
+        val name1 = latinWords[rnd.nextInt(16)]
+        val name2 = latinWords[rnd.nextInt(16)]
+        val pkgName = "$name1 $name2"
 
-    return mods.map { (versions, pkgName, pkgId) ->
-        val authors = List(Random.nextInt(1, 3)) {
-            "${latinWords.random().uppercase()} ${
-                latinWords.random().uppercase()
-            }"
-        }
-        val repoAuthor = authors.random()
-        Extension(
-            id = pkgId,
-            displayName = pkgName.replaceFirstChar { it.uppercase() },
-            description = generateLoremParagraph(Random.nextInt(10, 30)),
-            tags = listOf("QOL", "RANDOM", "UNITS").shuffled().take(Random.nextInt(1, 3)),
-            infoUrl = "https://example.com/$repoAuthor/$pkgName/README.md".replace(" ", ""),
-            authors = authors,
-            artifacts = versions.map { ver ->
-                Artifact(
-                    fileName = "$pkgName-$ver.zip",
-                    version = ver,
-                    category = listOf("Release", "Beta", "Alpha").random(),
-                    type = "Mod",
-                    gameVersion = "0.${Random.nextInt(30, 32)}",
-                    downloadUrl = "https://example.com/$repoAuthor/$pkgName-$ver.zip".replace(" ", ""),
-                    hash = UUID.randomUUID().toString().replace("-", ""),
-                    extends = if (Random.nextBoolean()) run {
-                        val depend = mods.random()
-                        PackageReference(
-                            id = depend.third,
-                            version = depend.first.random()
-                        )
-                    } else null,
-                    dependencies = List(Random.nextInt(10, 20)) {
-                        val depend = mods.random()
-                        PackageReference(
-                            id = depend.third,
-                            version = depend.first.random()
-                        )
-                    },
-                    incompatibilities = List(Random.nextInt(10, 20)) {
-                        val depend = mods.random()
-                        PackageReference(
-                            id = depend.third,
-                            version = depend.first.random()
-                        )
-                    }
-                )
+        val versionCount = rnd.nextInt(10, 30)
+        val artifacts = ArrayList<Artifact>(versionCount)
+
+        for (v in 0 until versionCount) {
+            val depCount = rnd.nextInt(10, 20)
+            val deps = ArrayList<PackageReference>(depCount)
+            repeat(depCount) {
+                deps.add(PackageReference(allIds[rnd.nextInt(modCount)], Version(1, rnd.nextInt(10), 0)))
             }
-        )
+
+            // Optimization: Faster random string than UUID.randomUUID()
+            val fastHash = java.lang.Long.toHexString(rnd.nextLong()) + java.lang.Long.toHexString(rnd.nextLong())
+
+            artifacts.add(Artifact(
+                fileName = "$pkgId-$v.zip",
+                version = Version(1, v, 0),
+                category = "Release",
+                type = "Mod",
+                gameVersion = "0.31",
+                downloadUrl = "https://cdn.ex.com/$author/$pkgId-$v.zip",
+                hash = fastHash,
+                extends = null,
+                dependencies = deps,
+                incompatibilities = emptyList()
+            ))
+        }
+
+        // Optimized Random Tags: 1-4 random single words from latinWords
+        val tagCount = rnd.nextInt(1, 5)
+        val tags = ArrayList<String>(tagCount)
+        repeat(tagCount) {
+            tags.add(latinWords[rnd.nextInt(16)])
+        }
+
+        manifest.add(Extension(
+            id = pkgId,
+            displayName = pkgName,
+            description = "Description for $pkgName: ${latinWords[rnd.nextInt(16)]} ${latinWords[rnd.nextInt(16)]}",
+            tags = tags,
+            infoUrl = "https://ex.com/$author/$pkgId",
+            authors = listOf(author),
+            artifacts = artifacts
+        ))
     }
+    return manifest
 }

@@ -68,9 +68,9 @@ compose.desktop {
 
         nativeDistributions {
 
-            targetFormats(TargetFormat.Dmg, TargetFormat.Exe, TargetFormat.Msi, TargetFormat.Deb)
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
 
-            packageVersion = "1.2.0"
+            packageVersion = "1.3.0"
             packageName = "Nuclear Option Mod Manager"
             vendor = "Combat"
             description = "A Mod Manager For Nuclear Option"

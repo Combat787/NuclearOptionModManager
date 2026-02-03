@@ -1,14 +1,10 @@
 package com.combat.nomm
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.VerticalScrollbar
-import androidx.compose.foundation.border
-import androidx.compose.foundation.defaultScrollbarStyle
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
@@ -28,6 +24,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import nuclearoptionmodmanager.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
+import kotlin.math.log10
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -38,32 +35,41 @@ fun SearchScreen(
     val allMods by RepoMods.mods.collectAsState()
     val isLoading by RepoMods.isLoading.collectAsState()
 
-    var filteredMods by remember { mutableStateOf(allMods) }
-
+    
+    var filteredMods by remember { mutableStateOf(allMods.sortedByDescending { it.downloadCount }) }
+    
+    var isInitialLoad by remember { mutableStateOf(true) }
     LaunchedEffect(searchQuery, allMods) {
-        delay(250)
+
+        if (!isInitialLoad && searchQuery.isNotEmpty()) {
+            delay(250)
+        }
 
         val results = withContext(Dispatchers.Default) {
             if (searchQuery.isBlank()) {
-                allMods
+                allMods.sortedByDescending { it.downloadCount }
             } else {
                 allMods.sortFilterByQuery(searchQuery, minSimilarity = 0.3) { ext, query ->
                     val nameScore = fuzzyPowerScore(query, ext.displayName)
                     val idScore = fuzzyPowerScore(query, ext.id)
+                    
+                    val tagScore = ext.tags.maxOfOrNull { fuzzyPowerScore(query, it) } ?: 0.0
+                    
                     val authorScore = ext.authors.maxOfOrNull { fuzzyPowerScore(query, it) } ?: 0.0
 
-                    val weightedScore = (nameScore * 5.0) + (idScore * 2.0) + (authorScore * 1.5)
-                    val lengthPenalty = if (ext.displayName.length > query.length * 3) 0.9 else 1.0
+                    val popularityFactor = log10((ext.downloadCount?.toDouble() ?: 1.0) + 1.0)
+                    val weightedScore = ((nameScore * 5.0) + (idScore * 2.0) + (authorScore * 1.5) + tagScore) * (1.0 + (popularityFactor * 0.1))
 
+                    val lengthPenalty = if (ext.displayName.length > query.length * 3) 0.9 else 1.0
                     ext to (weightedScore * lengthPenalty)
                 }
             }
         }
-
         filteredMods = results
+        isInitialLoad = false
     }
     val state = rememberLazyListState()
-    Row(modifier = Modifier.fillMaxSize(),horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -121,7 +127,7 @@ fun SearchScreen(
                 }
             }
         }
-        
+
         VerticalScrollbar(
             modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 16.dp),
             adapter = rememberScrollbarAdapter(state),
@@ -217,8 +223,15 @@ fun ModItem(mod: Extension, onClick: () -> Unit) {
                 )
                 Row(
                     modifier = Modifier.padding(top = 4.dp).height(20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (mod.downloadCount != null) {
+                        Icon(painterResource(Res.drawable.download_24px), null, Modifier.size(20.dp))
+                        Text(mod.downloadCount.toString(), style = MaterialTheme.typography.bodySmall)
+                        VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                    }
+                    
                     mod.tags.forEach { tag ->
                         Surface(shape = CircleShape) {
                             Text(
@@ -230,57 +243,70 @@ fun ModItem(mod: Extension, onClick: () -> Unit) {
                     }
                 }
             }
+            val controlSize = 40.dp
+            val iconSize = 24.dp
 
-            when {
-                taskState != null -> {
-                    FilledTonalIconButton(
-                        onClick = { if (taskState.phase == TaskState.Phase.DOWNLOADING) taskState.cancel() },
-                        modifier = Modifier.size(40.dp),
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
+            Row(
+                modifier = Modifier.height(controlSize),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                when {
+                    taskState != null -> {
+                        Box(
+                            modifier = Modifier.size(controlSize),
+                            contentAlignment = Alignment.Center
+                        ) {
                             CircularProgressIndicator(
                                 progress = { taskState.progress ?: 1f },
-                                modifier = Modifier.fillMaxSize(),
-                                strokeWidth = 4.dp,
+                                modifier = Modifier.size(48.dp),
+                                strokeWidth = 3.dp,
                                 color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.onSurface,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
                             )
-                            if (taskState.phase == TaskState.Phase.DOWNLOADING) {
+
+                            IconButton(
+                                onClick = { if (taskState.phase == TaskState.Phase.DOWNLOADING) taskState.cancel() },
+                                modifier = Modifier.size(controlSize)
+                            ) {
                                 Icon(
-                                    painterResource(Res.drawable.close_24px),
-                                    contentDescription = "Cancel",
-                                    modifier = Modifier.size(16.dp)
+                                    painter = if (taskState.phase == TaskState.Phase.DOWNLOADING)
+                                        painterResource(Res.drawable.close_24px)
+                                    else
+                                        painterResource(Res.drawable.unarchive_24px),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(iconSize),
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
                     }
-                }
 
-                modMeta != null -> {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                    modMeta != null -> {
                         if (modMeta.hasUpdate) {
                             IconButton(
                                 onClick = { modMeta.update() },
-                                modifier = Modifier.size(32.dp),
-                                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                                modifier = Modifier.size(controlSize)
                             ) {
-                                Icon(painterResource(Res.drawable.refresh_24px), null, modifier = Modifier.size(20.dp))
+                                Icon(
+                                    painterResource(Res.drawable.refresh_24px),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(iconSize),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
 
                         IconButton(
                             onClick = { modMeta.uninstall() },
-                            modifier = Modifier.size(32.dp),
-                            colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            modifier = Modifier.size(controlSize)
                         ) {
-                            Icon(painterResource(Res.drawable.delete_24px), null, modifier = Modifier.size(20.dp))
+                            Icon(
+                                painterResource(Res.drawable.delete_24px),
+                                contentDescription = null,
+                                modifier = Modifier.size(iconSize),
+                                tint = MaterialTheme.colorScheme.error
+                            )
                         }
 
                         Switch(
@@ -288,31 +314,31 @@ fun ModItem(mod: Extension, onClick: () -> Unit) {
                             onCheckedChange = { isEnabled ->
                                 if (isEnabled) modMeta.enable() else modMeta.disable()
                             },
-                            modifier = Modifier.scale(0.7f)
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .scale(0.75f)
                         )
                     }
-                }
 
-                else -> {
-                    Button(
-                        onClick = {
-                            mod.artifacts.maxByOrNull { it.version }?.let {
-                                RepoMods.installMod(mod.id, it.version)
-                            }
-                        },
-                        modifier = Modifier.size(40.dp),
-                        contentPadding = PaddingValues(8.dp),
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Icon(
-                            painterResource(Res.drawable.download_24px),
-                            contentDescription = "Install",
-                            modifier = Modifier.fillMaxSize()
-                        )
+                    else -> {
+                        IconButton(
+                            onClick = {
+                                mod.artifacts.maxByOrNull { it.version }?.let {
+                                    RepoMods.installMod(mod.id, it.version)
+                                }
+                            },
+                            modifier = Modifier.size(controlSize)
+                        ) {
+                            Icon(
+                                painterResource(Res.drawable.download_24px),
+                                contentDescription = null,
+                                modifier = Modifier.size(iconSize),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }
-
         }
     }
 }

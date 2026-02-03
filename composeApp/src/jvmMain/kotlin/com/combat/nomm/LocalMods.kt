@@ -40,6 +40,10 @@ object LocalMods {
 
 
 
+    init {
+        loadInstalledModMetas()
+    }
+    
     fun exportMods() {
         scope.launch {
             val exportData = json.encodeToString(

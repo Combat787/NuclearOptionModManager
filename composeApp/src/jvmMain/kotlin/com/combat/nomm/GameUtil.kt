@@ -84,3 +84,21 @@ fun applyNuclearOptionFix() {
 
     configFile.writeText(result.joinToString("\n"))
 }
+
+
+fun getNuclearOptionFolder(): File {
+    val os = System.getProperty("os.name").lowercase()
+    val userHome = System.getProperty("user.home")
+
+    return when {
+        os.contains("win") -> {
+            File(userHome, "AppData/LocalLow/Shockfront/NuclearOption")
+        }
+        os.contains("mac") -> {
+            File(userHome, "Library/Application Support/Shockfront/NuclearOption")
+        }
+        else -> {
+            File(userHome, ".local/share/Shockfront/NuclearOption")
+        }
+    }
+}

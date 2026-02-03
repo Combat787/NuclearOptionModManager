@@ -28,6 +28,7 @@ import androidx.navigation3.ui.NavDisplay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.awt.datatransfer.StringSelection
 
@@ -42,10 +43,6 @@ fun App() {
     val currentKey = backStack.lastOrNull() ?: MainNavigation.Search
 
         
-        LaunchedEffect(Unit) {
-
-            LocalMods.loadInstalledModMetas()
-        }
     
         Surface(
             color = MaterialTheme.colorScheme.background
@@ -84,7 +81,7 @@ fun App() {
                             entry<MainNavigation.Libraries> {
                                 LibraryScreen(
                                     onOpenMod = { targetId ->
-                                        if (SettingsManager.config.value.cachedManifest.any { it.id == targetId }) {
+                                        if (RepoMods.mods.value.any { it.id == targetId } || SettingsManager.config.value.cachedManifest.any { it.id == targetId }) {
                                             backStack.add(MainNavigation.Mod(targetId))
                                         }
                                     }
@@ -97,11 +94,16 @@ fun App() {
                                 ModDetailScreen(
                                     modId = nav.modName,
                                     onOpenMod = { targetId ->
-                                        if (SettingsManager.config.value.cachedManifest.any { it.id == targetId }) {
+                                        if (RepoMods.mods.value.any { it.id == targetId } || SettingsManager.config.value.cachedManifest.any { it.id == targetId }) {
                                             backStack.add(MainNavigation.Mod(targetId))
                                         }
                                     },
-                                    onBack = { backStack.removeLastOrNull() }
+                                    onBack = { 
+                                        backStack.removeLastOrNull()
+                                        if (backStack.isEmpty()) {
+                                            backStack.add(MainNavigation.Search)
+                                        }
+                                    }
                                 )
                             }
                         })

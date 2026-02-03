@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -18,6 +19,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import nuclearoptionmodmanager.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
+import kotlin.math.log10
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -33,36 +35,42 @@ fun LibraryScreen(
         localMods.values.map { modMeta ->
             RepoMods.mods.value.find { it.id == modMeta.id }
                 ?: SettingsManager.config.value.cachedManifest.find { it.id == modMeta.id } ?: Extension(
-                    modMeta.id,
-                    modMeta.id,
-                    "",
-                    emptyList(),
-                    "",
-                    emptyList(),
-                    emptyList()
+                    modMeta.id, modMeta.id, "", emptyList(), "", emptyList(), emptyList()
                 )
         }
     }
 
-    var filteredMods by remember { mutableStateOf(installedExtensions) }
+    var filteredMods by remember { mutableStateOf(installedExtensions.sortedByDescending { it.downloadCount }) }
 
+    var isInitialLoad by remember { mutableStateOf(true) }
     LaunchedEffect(searchQuery, installedExtensions) {
-        delay(250)
+
+        if (!isInitialLoad && searchQuery.isNotEmpty()) {
+            delay(250)
+        }
+
         val results = withContext(Dispatchers.Default) {
             if (searchQuery.isBlank()) {
-                installedExtensions
+                installedExtensions.sortedByDescending { it.downloadCount }
             } else {
                 installedExtensions.sortFilterByQuery(searchQuery, minSimilarity = 0.3) { ext, query ->
                     val nameScore = fuzzyPowerScore(query, ext.displayName)
                     val idScore = fuzzyPowerScore(query, ext.id)
+
+                    val tagScore = ext.tags.maxOfOrNull { fuzzyPowerScore(query, it) } ?: 0.0
+
                     val authorScore = ext.authors.maxOfOrNull { fuzzyPowerScore(query, it) } ?: 0.0
-                    val weightedScore = (nameScore * 5.0) + (idScore * 2.0) + (authorScore * 1.5)
+
+                    val popularityFactor = log10((ext.downloadCount?.toDouble() ?: 1.0) + 1.0)
+                    val weightedScore = ((nameScore * 5.0) + (idScore * 2.0) + (authorScore * 1.5) + tagScore) * (1.0 + (popularityFactor * 0.1))
+
                     val lengthPenalty = if (ext.displayName.length > query.length * 3) 0.9 else 1.0
                     ext to (weightedScore * lengthPenalty)
                 }
             }
         }
         filteredMods = results
+        isInitialLoad = false
     }
     val state = rememberLazyListState()
     Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -88,6 +96,37 @@ fun LibraryScreen(
                         )
                     )
 
+                    Box {
+                        Button(
+                            onClick = { menuExpanded = true },
+                            modifier = Modifier.fillMaxHeight(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                            ),
+                            shape = MaterialTheme.shapes.small,
+                        ) {
+                            Icon(
+                                painterResource(Res.drawable.more_vert_24px), contentDescription = "Options"
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            DropdownMenuItem(text = { Text("Export Modpack") }, onClick = {
+                                menuExpanded = false
+                                LocalMods.exportMods()
+                            }, leadingIcon = { Icon(painterResource(Res.drawable.file_export_24px), null) })
+                            DropdownMenuItem(text = { Text("Import Modpack") }, onClick = {
+                                menuExpanded = false
+                                LocalMods.importMods()
+                            }, leadingIcon = { Icon(painterResource(Res.drawable.file_open_24px), null) })
+                            DropdownMenuItem(text = { Text("Add from file") }, onClick = {
+                                menuExpanded = false
+                                LocalMods.addFromFile()
+                            }, leadingIcon = { Icon(painterResource(Res.drawable.folder_open_24px), null) })
+                        }
+                    }
                     Button(
                         onClick = { LocalMods.refresh() },
                         modifier = Modifier.fillMaxHeight(),
@@ -103,52 +142,6 @@ fun LibraryScreen(
                         )
                     }
 
-                    Box {
-                        Button(
-                            onClick = { menuExpanded = true },
-                            modifier = Modifier.fillMaxHeight(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                            ),
-                            shape = MaterialTheme.shapes.small,
-                        ) {
-                            Icon(
-                                painterResource(Res.drawable.more_vert_24px),
-                                contentDescription = "Options"
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Export Modpack") },
-                                onClick = {
-                                    menuExpanded = false
-                                    LocalMods.exportMods()
-                                },
-                                leadingIcon = { Icon(painterResource(Res.drawable.file_export_24px), null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Import Modpack") },
-                                onClick = {
-                                    menuExpanded = false
-                                    LocalMods.importMods()
-                                },
-                                leadingIcon = { Icon(painterResource(Res.drawable.file_open_24px), null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Add from file") },
-                                onClick = {
-                                    menuExpanded = false
-                                    LocalMods.addFromFile()
-                                },
-                                leadingIcon = { Icon(painterResource(Res.drawable.folder_open_24px), null) }
-                            )
-                        }
-                    }
                 }
             }
 

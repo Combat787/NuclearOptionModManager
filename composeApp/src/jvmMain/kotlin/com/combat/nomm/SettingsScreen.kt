@@ -28,6 +28,7 @@ import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.dialogs.openDirectoryPicker
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.awt.Desktop
 import java.io.File
 
 @Composable
@@ -105,6 +106,24 @@ fun SettingsScreen() {
                     SettingsManager.updateConfig(currentConfig.copy(contrast = it))
                 })
         }
+        SettingsGroup(title = "Folders") {
+            ClickableSettingsRow(
+                label = "Open Nuclear Option Folder",
+                subLabel = "Click to open the Folder containing the Logs, Missions and Blocklist.",
+                onClick =  {
+                    Desktop.getDesktop().open(getNuclearOptionFolder())
+                }
+            )
+            ClickableSettingsRow(
+                label = "Open Nuclear Option Game Folder",
+                subLabel = "Click to open the Folder containing the Game Files and BepInEx.",
+                onClick =  {
+                    SettingsManager.config.value.gamePath?.let {
+                        Desktop.getDesktop().open(File(it))
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -141,7 +160,6 @@ fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-
 fun ClickableSettingsRow(label: String, subLabel: String, onClick: () -> Unit) {
 
     Surface(
