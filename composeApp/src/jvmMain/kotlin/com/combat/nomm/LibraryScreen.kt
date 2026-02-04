@@ -5,21 +5,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import nuclearoptionmodmanager.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
-import kotlin.math.log10
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -40,38 +36,8 @@ fun LibraryScreen(
         }
     }
 
-    var filteredMods by remember { mutableStateOf(installedExtensions.sortedByDescending { it.downloadCount }) }
-
-    var isInitialLoad by remember { mutableStateOf(true) }
-    LaunchedEffect(searchQuery, installedExtensions) {
-
-        if (!isInitialLoad && searchQuery.isNotEmpty()) {
-            delay(250)
-        }
-
-        val results = withContext(Dispatchers.Default) {
-            if (searchQuery.isBlank()) {
-                installedExtensions.sortedByDescending { it.downloadCount }
-            } else {
-                installedExtensions.sortFilterByQuery(searchQuery, minSimilarity = 0.3) { ext, query ->
-                    val nameScore = fuzzyPowerScore(query, ext.displayName)
-                    val idScore = fuzzyPowerScore(query, ext.id)
-
-                    val tagScore = ext.tags.maxOfOrNull { fuzzyPowerScore(query, it) } ?: 0.0
-
-                    val authorScore = ext.authors.maxOfOrNull { fuzzyPowerScore(query, it) } ?: 0.0
-
-                    val popularityFactor = log10((ext.downloadCount?.toDouble() ?: 1.0) + 1.0)
-                    val weightedScore = ((nameScore * 5.0) + (idScore * 2.0) + (authorScore * 1.5) + tagScore) * (1.0 + (popularityFactor * 0.1))
-
-                    val lengthPenalty = if (ext.displayName.length > query.length * 3) 0.9 else 1.0
-                    ext to (weightedScore * lengthPenalty)
-                }
-            }
-        }
-        filteredMods = results
-        isInitialLoad = false
-    }
+    val filteredMods = rememberFilteredExtensions(installedExtensions, searchQuery)
+    
     val state = rememberLazyListState()
     Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         LazyColumn(
@@ -88,12 +54,7 @@ fun LibraryScreen(
                 ) {
                     SearchBar(
                         query = searchQuery,
-                        onQueryChange = { searchQuery = it },
-                        modifier = Modifier.weight(1f).border(
-                            width = Dp.Hairline,
-                            color = MaterialTheme.colorScheme.outline,
-                            shape = MaterialTheme.shapes.small
-                        )
+                        onQueryChange = { searchQuery = it }
                     )
 
                     Box {
@@ -101,8 +62,8 @@ fun LibraryScreen(
                             onClick = { menuExpanded = true },
                             modifier = Modifier.fillMaxHeight(),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                containerColor = MaterialTheme.colorScheme.secondary,
+                                contentColor = MaterialTheme.colorScheme.onSecondary,
                             ),
                             shape = MaterialTheme.shapes.small,
                         ) {
@@ -131,8 +92,8 @@ fun LibraryScreen(
                         onClick = { LocalMods.refresh() },
                         modifier = Modifier.fillMaxHeight(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.onSecondary,
                         ),
                         shape = MaterialTheme.shapes.small,
                     ) {
@@ -165,12 +126,18 @@ fun LibraryScreen(
         }
 
         VerticalScrollbar(
-            modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 16.dp),
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(8.dp)
+                .padding(vertical = 16.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
             adapter = rememberScrollbarAdapter(state),
             style = defaultScrollbarStyle().copy(
-                unhoverColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                unhoverColor = MaterialTheme.colorScheme.outline,
                 hoverColor = MaterialTheme.colorScheme.primary,
-                thickness = 4.dp
+                thickness = 8.dp,
+                shape = CircleShape
             )
         )
     }

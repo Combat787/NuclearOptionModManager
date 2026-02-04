@@ -1,10 +1,8 @@
 package com.combat.nomm
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import java.util.*
+import kotlinx.serialization.Transient
 import java.util.concurrent.ThreadLocalRandom
-import kotlin.random.Random
 
 typealias Manifest = List<Extension>
 
@@ -18,6 +16,7 @@ data class Extension(
     val authors: List<String>,
     val artifacts: List<Artifact>,
     val downloadCount: Int? = null,
+    @Transient val real: Boolean = true
 )
 
 @Serializable
@@ -131,7 +130,9 @@ fun fetchFakeManifest(): List<Extension> {
             tags = tags,
             infoUrl = "https://ex.com/$author/$pkgId",
             authors = listOf(author),
-            artifacts = artifacts
+            artifacts = artifacts,
+            downloadCount = rnd.nextInt(1, 100000000),
+            real = false,
         ))
     }
     return manifest

@@ -13,19 +13,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -46,7 +43,7 @@ fun ModDetailScreen(
         ?: SettingsManager.config.value.cachedManifest.find { it.id == modId } ?: run { onBack(); return }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp),
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         val backStack = rememberNavBackStack(ModNavigation.config, ModNavigation.Details)
@@ -72,6 +69,7 @@ fun ModDetailScreen(
                     }
                     entry<ModNavigation.Versions> {
                         ModVersionsContent(mod) { version ->
+                            backStack.clear()
                             backStack.add(ModNavigation.Dependencies(version))
                         }
                     }
@@ -104,9 +102,15 @@ fun ModTitleCard(
                         text = mod.displayName,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Row(modifier = Modifier.height(IntrinsicSize.Min),horizontalArrangement = Arrangement.spacedBy(8.dp),verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
                             text = buildAnnotatedString {
                                 if (mod.authors.isNotEmpty()) {
@@ -121,17 +125,20 @@ fun ModTitleCard(
                         )
                         VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
 
-                        Icon(painterResource(Res.drawable.download_24px), null, Modifier.size(24.dp))
-                        Text(mod.downloadCount.toString(), style = MaterialTheme.typography.bodyMedium)
-                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(painterResource(Res.drawable.download_24px), null, Modifier.size(24.dp))
+                            Text(mod.downloadCount.toString(), style = MaterialTheme.typography.bodyMedium)
+                        }
+
                         VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
                         mod.tags.forEach { tag ->
                             DisableSelection {
-                                Surface(shape = CircleShape) {
+                                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.onSurfaceVariant) {
                                     Text(
                                         text = tag,
                                         modifier = Modifier.padding(horizontal = 8.dp, 2.dp).clip(CircleShape),
                                         style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.surfaceVariant
                                     )
                                 }
                             }
@@ -140,7 +147,11 @@ fun ModTitleCard(
                 }
             }
 
-            ModHeaderActions(mod)
+            val installStatuses by Installer.installStatuses.collectAsState()
+            val installedMods by LocalMods.mods.collectAsState()
+            val taskState = installStatuses[mod.id]
+            val modMeta = installedMods[mod.id]
+            ModActions(taskState, modMeta, mod)
 
             IconButton(
                 onClick = onBack, colors = IconButtonDefaults.iconButtonColors(
@@ -155,23 +166,22 @@ fun ModTitleCard(
         }
     }
 }
+
 @Composable
-private fun ModHeaderActions(
+@OptIn(ExperimentalMaterial3Api::class)
+fun ModActions(
+    taskState: TaskState?,
+    modMeta: ModMeta?,
     mod: Extension,
+    modifier: Modifier = Modifier,
 ) {
-    val installStatuses by Installer.installStatuses.collectAsState()
-    val installedMods by LocalMods.mods.collectAsState()
-
-    val taskState = installStatuses[mod.id]
-    val modMeta = installedMods[mod.id]
-
-    val controlSize = 40.dp
-    val iconSize = 24.dp
-
     Row(
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        val controlSize = 40.dp
+        val iconSize = 24.dp
         when {
             taskState != null -> {
                 val animatedProgress by animateFloatAsState(
@@ -185,7 +195,7 @@ private fun ModHeaderActions(
                 ) {
                     CircularProgressIndicator(
                         progress = { animatedProgress },
-                        modifier = Modifier.size(48.dp),
+                        modifier = Modifier.size(controlSize*1.2f),
                         strokeWidth = 3.dp,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -202,61 +212,111 @@ private fun ModHeaderActions(
                             else
                                 painterResource(Res.drawable.unarchive_24px),
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(iconSize/2*3),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
             }
-
             modMeta != null -> {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (modMeta.hasUpdate) {
+                if (modMeta.problems.isNotEmpty()) {
+                    TooltipBox(
+                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+                            TooltipAnchorPosition.Above
+                        ),
+                        state = rememberTooltipState(),
+                        tooltip = {
+                            PlainTooltip(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                maxWidth = Dp.Unspecified,
+                            ) {
+                                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
+                                    modMeta.problems.forEachIndexed { i, problem ->
+                                        Text(
+                                            text = problem,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Visible,
+                                        )
+                                        if (i != modMeta.problems.size - 1) {
+                                            HorizontalDivider(modifier = Modifier.padding(horizontal = 2.dp).fillMaxWidth(),
+                                                color = MaterialTheme.colorScheme.onErrorContainer)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ) {
                         IconButton(
-                            onClick = { modMeta.update() },
+                            onClick = { modMeta.resolveProblems() },
                             modifier = Modifier.size(controlSize)
                         ) {
-                            Icon(
-                                painterResource(Res.drawable.refresh_24px),
-                                contentDescription = "Update",
-                                modifier = Modifier.size(iconSize),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                            BadgedBox(
+                                badge = {
+                                    if (modMeta.problems.isNotEmpty()) {
+                                        Badge(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = MaterialTheme.colorScheme.onError
+                                        ) {
+                                            Text(modMeta.problems.size.toString())
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    painterResource(Res.drawable.warning_24px),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(iconSize),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     }
-
+                }
+                if (modMeta.hasUpdate) {
                     IconButton(
-                        onClick = { modMeta.uninstall() },
+                        onClick = { modMeta.update() },
                         modifier = Modifier.size(controlSize)
                     ) {
                         Icon(
-                            painterResource(Res.drawable.delete_24px),
-                            contentDescription = "Uninstall",
+                            painterResource(Res.drawable.refresh_24px),
+                            contentDescription = "Update",
                             modifier = Modifier.size(iconSize),
-                            tint = MaterialTheme.colorScheme.error
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
+                }
 
-                    Switch(
-                        checked = modMeta.enabled ?: false,
-                        onCheckedChange = { isEnabled ->
-                            if (isEnabled) modMeta.enable() else modMeta.disable()
-                        },
-                        modifier = Modifier
-                            .padding(start = 4.dp)
-                            .scale(0.8f)
+                IconButton(
+                    onClick = { modMeta.uninstall() },
+                    modifier = Modifier.size(controlSize)
+                ) {
+                    Icon(
+                        painterResource(Res.drawable.delete_24px),
+                        contentDescription = null,
+                        modifier = Modifier.size(iconSize),
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
+
+                Switch(
+                    checked = modMeta.enabled ?: false,
+                    onCheckedChange = { isEnabled ->
+                        if (isEnabled) modMeta.enable() else modMeta.disable()
+                    },
+                    modifier = Modifier
+                        .height(32.dp)
+                )
+
             }
 
             else -> {
                 IconButton(
                     onClick = {
                         mod.artifacts.maxByOrNull { it.version }?.let { latest ->
-                            RepoMods.installMod(mod.id, latest.version)
+                            if (mod.real) RepoMods.installMod(mod.id, latest.version)
                         }
                     },
                     modifier = Modifier.size(controlSize)
@@ -351,10 +411,17 @@ private fun NavItem(
 fun ModDetailsContent(mod: Extension) {
     SelectionContainer {
         val state = rememberScrollState()
+
+        val isScrollable by remember {
+            derivedStateOf { state.maxValue > 0 }
+        }
+
         Row(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+
+
             Column(
                 modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(state),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -382,15 +449,23 @@ fun ModDetailsContent(mod: Extension) {
                 )
                 Spacer(Modifier.height(0.dp))
             }
-            VerticalScrollbar(
-                modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 16.dp),
-                adapter = rememberScrollbarAdapter(state),
-                style = defaultScrollbarStyle().copy(
-                    unhoverColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                    hoverColor = MaterialTheme.colorScheme.primary,
-                    thickness = 4.dp
+            if (isScrollable) {
+                VerticalScrollbar(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(8.dp)
+                        .padding(vertical = 16.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    adapter = rememberScrollbarAdapter(state),
+                    style = defaultScrollbarStyle().copy(
+                        unhoverColor = MaterialTheme.colorScheme.outline,
+                        hoverColor = MaterialTheme.colorScheme.primary,
+                        thickness = 8.dp,
+                        shape = CircleShape
+                    )
                 )
-            )
+            }
         }
     }
 }
@@ -408,13 +483,21 @@ fun ModVersionsContent(
     val modMeta = mods[mod.id]
 
     val state = rememberLazyListState()
+
+    val isScrollable by remember {
+        derivedStateOf {
+            state.layoutInfo.visibleItemsInfo.size < state.layoutInfo.totalItemsCount ||
+                state.firstVisibleItemScrollOffset > 0
+        }
+    }
+
     Row(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxHeight(),
-            contentPadding = PaddingValues(vertical = 16.dp),
+            contentPadding = PaddingValues(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             state = state,
         ) {
@@ -423,19 +506,27 @@ fun ModVersionsContent(
                 ArtifactCard(
                     artifact = artifact,
                     isInstalled = isInstalled,
-                    onInstall = { RepoMods.installMod(mod.id, artifact.version) },
+                    onInstall = { if (mod.real) RepoMods.installMod(mod.id, artifact.version) },
                     onViewDependencies = { onOpenDependencies(artifact.version) })
             }
         }
-        VerticalScrollbar(
-            modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 16.dp),
-            adapter = rememberScrollbarAdapter(state),
-            style = defaultScrollbarStyle().copy(
-                unhoverColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                hoverColor = MaterialTheme.colorScheme.primary,
-                thickness = 4.dp
+        if (isScrollable) {
+            VerticalScrollbar(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(8.dp)
+                    .padding(vertical = 8.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                adapter = rememberScrollbarAdapter(state),
+                style = defaultScrollbarStyle().copy(
+                    unhoverColor = MaterialTheme.colorScheme.outline,
+                    hoverColor = MaterialTheme.colorScheme.primary,
+                    thickness = 8.dp,
+                    shape = CircleShape
+                )
             )
-        )
+        }
     }
 }
 
@@ -447,67 +538,42 @@ fun ArtifactCard(
     onViewDependencies: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(), color = if (isInstalled) MaterialTheme.colorScheme.surfaceVariant
-        else MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.medium, border = BorderStroke(
-            1.dp, if (isInstalled) MaterialTheme.colorScheme.outline
-            else MaterialTheme.colorScheme.outlineVariant
-        )
+        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium
     ) {
         SelectionContainer {
             Row(
-                modifier = Modifier.padding(16.dp).height(IntrinsicSize.Min),
+                modifier = Modifier.padding(8.dp).height(IntrinsicSize.Min),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Column(
                     modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "${artifact.version}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (isInstalled) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.primary, shape = CircleShape
-                            ) {
-                                DisableSelection {
-                                    Text(
-                                        "INSTALLED",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Black,
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
-
+                    Text(
+                        text = "${artifact.version}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Text(
                         text = "Hash: ${artifact.hash ?: "N/A"}",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = FontFamily.Monospace,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-
                     Text(
                         text = buildAnnotatedString {
                             withLink(LinkAnnotation.Url(artifact.downloadUrl)) {
                                 append(artifact.downloadUrl)
                             }
                         },
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.primary),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.primary),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -520,13 +586,14 @@ fun ArtifactCard(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    FilledTonalIconButton(
-                        onClick = onInstall, enabled = !isInstalled, modifier = Modifier.size(40.dp)
+                    IconButton(
+                        onClick = onInstall, enabled = !isInstalled , modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
-                            painter = painterResource(Res.drawable.download_24px),
+                            painter = if (isInstalled) painterResource(Res.drawable.check_24px) else painterResource(Res.drawable.download_24px),
                             contentDescription = "Install",
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
 
@@ -555,13 +622,34 @@ fun ModVersionDependenciesContent(
 ) {
     val artifact = mod.artifacts.find { it.version == version }
     val state = rememberLazyListState()
+    val allMods by RepoMods.mods.collectAsState()
+
+    val dependents = remember(allMods, mod.id) {
+        allMods.mapNotNull { otherMod ->
+            val versions = otherMod.artifacts
+                .filter { art ->
+                    art.extends?.id == mod.id || art.dependencies.any { it.id == mod.id }
+                }
+                .map { it.version }
+
+            if (versions.isNotEmpty()) otherMod.id to versions else null
+        }
+    }
+
+    val isScrollable by remember {
+        derivedStateOf {
+            state.layoutInfo.visibleItemsInfo.size < state.layoutInfo.totalItemsCount ||
+                state.firstVisibleItemScrollOffset > 0
+        }
+    }
+
     Row(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxHeight(),
-            contentPadding = PaddingValues(vertical = 16.dp),
+            contentPadding = PaddingValues(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             state = state,
         ) {
@@ -570,13 +658,16 @@ fun ModVersionDependenciesContent(
                 return@LazyColumn
             }
 
-            item {
-                DependencyHeader("Extends", MaterialTheme.colorScheme.primary)
-            }
-
+            item { DependencyHeader("Extends", MaterialTheme.colorScheme.primary) }
             if (artifact.extends != null) {
                 item {
-                    DependencyItemCard(artifact.extends, onOpenMod, isIncompatible = false)
+                    val extendsVersion = artifact.extends.version
+                    DependencyItemCard(
+                        id = artifact.extends.id,
+                        versions = if (extendsVersion != null) listOf(extendsVersion) else emptyList(),
+                        onOpenMod = onOpenMod,
+                        isIncompatible = false
+                    )
                 }
             } else {
                 item { EmptySectionText("None") }
@@ -586,10 +677,11 @@ fun ModVersionDependenciesContent(
                 Spacer(Modifier.height(8.dp))
                 DependencyHeader("Dependencies", MaterialTheme.colorScheme.primary)
             }
-
             if (artifact.dependencies.isNotEmpty()) {
-                items(artifact.dependencies) { dep ->
-                    DependencyItemCard(dep, onOpenMod, isIncompatible = false)
+                val groupedDeps = artifact.dependencies.groupBy { it.id }
+                items(groupedDeps.keys.toList()) { id ->
+                    val versions = groupedDeps[id]?.mapNotNull { it.version } ?: emptyList()
+                    DependencyItemCard(id, versions, onOpenMod, false)
                 }
             } else {
                 item { EmptySectionText("None") }
@@ -599,26 +691,45 @@ fun ModVersionDependenciesContent(
                 Spacer(Modifier.height(8.dp))
                 DependencyHeader("Incompatibilities", MaterialTheme.colorScheme.error)
             }
-
             if (artifact.incompatibilities.isNotEmpty()) {
-                items(artifact.incompatibilities) { inc ->
-                    DependencyItemCard(inc, onOpenMod, isIncompatible = true)
+                val groupedIncompats = artifact.incompatibilities.groupBy { it.id }
+                items(groupedIncompats.keys.toList()) { id ->
+                    val versions = groupedIncompats[id]?.mapNotNull { it.version } ?: emptyList()
+                    DependencyItemCard(id, versions, onOpenMod, true)
+                }
+            } else {
+                item { EmptySectionText("None") }
+            }
+
+            item {
+                Spacer(Modifier.height(8.dp))
+                DependencyHeader("Dependents", MaterialTheme.colorScheme.secondary)
+            }
+            if (dependents.isNotEmpty()) {
+                items(dependents) { (id, versions) ->
+                    DependencyItemCard(id, versions, onOpenMod, false)
                 }
             } else {
                 item { EmptySectionText("None") }
             }
         }
-        VerticalScrollbar(
-            modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 16.dp),
-            adapter = rememberScrollbarAdapter(state),
-            style = defaultScrollbarStyle().copy(
-                unhoverColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                hoverColor = MaterialTheme.colorScheme.primary,
-                thickness = 4.dp
+
+        if (isScrollable) {
+            VerticalScrollbar(
+                modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 8.dp).clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                adapter = rememberScrollbarAdapter(state),
+                style = defaultScrollbarStyle().copy(
+                    unhoverColor = MaterialTheme.colorScheme.outline,
+                    hoverColor = MaterialTheme.colorScheme.primary,
+                    thickness = 8.dp,
+                    shape = CircleShape
+                )
             )
-        )
+        }
     }
 }
+
 
 @Composable
 private fun DependencyHeader(text: String, color: Color) {
@@ -635,14 +746,15 @@ private fun DependencyHeader(text: String, color: Color) {
 
 @Composable
 private fun DependencyItemCard(
-    ref: PackageReference,
+    id: String,
+    versions: List<Version>,
     onOpenMod: (String) -> Unit,
     isIncompatible: Boolean,
 ) {
-    val mod = RepoMods.mods.collectAsState().value.find { it.id == ref.id }
+    val mod = RepoMods.mods.collectAsState().value.find { it.id == id }
 
     Surface(
-        onClick = { if (mod != null) onOpenMod(ref.id) },
+        onClick = { if (mod != null) onOpenMod(id) },
         enabled = mod != null,
         color = if (isIncompatible) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
         else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -656,16 +768,18 @@ private fun DependencyItemCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = mod?.displayName ?: ref.id,
+                    text = mod?.displayName ?: id,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = if (isIncompatible) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = "${ref.version}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (versions.isNotEmpty()) {
+                    Text(
+                        text = versions.joinToString(", "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             if (mod != null) {
                 Icon(

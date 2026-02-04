@@ -90,15 +90,18 @@ object RepoMods {
             ?: extension.artifacts.maxByOrNull { it.version }
             ?: return
 
+        
         val installedMod = LocalMods.mods.value[id]
         if (installedMod != null) {
             val currentVersion = installedMod.artifact?.version
-            if (currentVersion != null && currentVersion >= targetArtifact.version) return
+            if (currentVersion != null && currentVersion == targetArtifact.version) return
         }
 
-        targetArtifact.dependencies.forEach { installMod(it.id, it.version, processing) }
-        targetArtifact.extends?.let { installMod(it.id, it.version, processing) }
+        targetArtifact.dependencies.forEach { installMod(it.id, null, processing) }
+        targetArtifact.extends?.let { installMod(it.id, null, processing) }
 
+        installedMod?.disable()
+        
         val disabledFolder = File(bepinexFolder, "disabledPlugins").apply { mkdirs() }
         val dir = File(disabledFolder, id)
 

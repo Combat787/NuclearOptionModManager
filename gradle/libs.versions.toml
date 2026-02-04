@@ -1,13 +1,13 @@
 [versions]
 androidx-lifecycle = "2.9.6"
 composeHotReload = "1.0.0"
-composeMultiplatform = "1.11.0-alpha01"
+composeMultiplatform = "1.11.0-alpha02"
 junit = "4.13.2"
 kotlin = "2.3.0"
 kotlinx-coroutines = "1.10.2"
 ktor = "3.3.3"
 logback = "1.5.24"
-material3 = "1.11.0-alpha01"
+material3 = "1.11.0-alpha02"
 
 kotlinx-serialization = "1.10.0"
 kotlinx-datetime = "0.7.1"

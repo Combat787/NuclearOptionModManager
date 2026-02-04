@@ -19,7 +19,6 @@ kotlin {
             languageSettings.enableLanguageFeature("ExplicitBackingFields")
         }
         commonMain.dependencies {
-            implementation(kotlin("reflect"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
@@ -70,7 +69,7 @@ compose.desktop {
 
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
 
-            packageVersion = "1.3.1"
+            packageVersion = "1.4.0"
             packageName = "Nuclear Option Mod Manager"
             vendor = "Combat"
             description = "A Mod Manager For Nuclear Option"

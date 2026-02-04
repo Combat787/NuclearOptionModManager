@@ -32,22 +32,20 @@ object LocalMods {
 
     val isGameExeFound: StateFlow<Boolean>
         field = MutableStateFlow(false)
-    
+
     val mods: StateFlow<Map<String, ModMeta>>
         field = MutableStateFlow(emptyMap())
-    
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-
 
     init {
         loadInstalledModMetas()
     }
-    
+
     fun exportMods() {
         scope.launch {
             val exportData = json.encodeToString(
-                mods.value.filter { it.value.enabled!! }.map { PackageReference(it.value.id, it.value.artifact?.version) }
+                mods.value.filter { it.value.enabled == true }.map { PackageReference(it.value.id, it.value.artifact?.version) }
             )
 
             val file = FileKit.openFileSaver(
@@ -58,6 +56,7 @@ object LocalMods {
             file?.writeString(exportData)
         }
     }
+
     fun addFromFile() {
         scope.launch {
             val file = FileKit.openFilePicker(
@@ -77,6 +76,7 @@ object LocalMods {
             }
         }
     }
+
     fun importMods() {
         scope.launch {
             val file = FileKit.openFilePicker(
@@ -87,17 +87,16 @@ object LocalMods {
             file?.let { platformFile ->
                 try {
                     val jsonString = platformFile.readString()
-
                     val imported: List<PackageReference> = json.decodeFromString(jsonString)
 
                     RepoMods.fetchManifest()
                     imported.forEach {
                         mods.value[it.id] ?: run {
-                            RepoMods.installMod(it.id,it.version)
+                            RepoMods.installMod(it.id, it.version)
                         }
                     }
                     val importedIds = imported.map { it.id }
-                    mods.value.forEach { (_, meta) -> 
+                    mods.value.forEach { (_, meta) ->
                         if (importedIds.contains(meta.id)) {
                             meta.enable()
                         } else  {
@@ -116,7 +115,7 @@ object LocalMods {
         val bepinexFolder = SettingsManager.bepInExFolder
         if (bepinexFolder?.exists() == true) {
             isBepInExInstalled.value = true
-        } else  { 
+        } else  {
             isBepInExInstalled.value = false
             mods.update { emptyMap() }
             return
@@ -176,20 +175,25 @@ object LocalMods {
 
         scan(plugins, true)
         scan(disabled, false)
-        foundMods.map { (string, meta) ->
-            val repoMod = RepoMods.mods.value.find { it.id == meta.id }
-            val artifact = repoMod?.artifacts?.maxByOrNull { it.version }
-            val version = meta.artifact?.version
 
-            if (artifact == null) {
-                Pair(string, meta)
-            } else {
-                Pair(
-                    string,
-                    meta.copy(hasUpdate = version?.let { it <= artifact.version } ?: true))
+        mods.update { foundMods }
+        recalculateAllProblems()
+    }
+
+    fun recalculateAllProblems() {
+        mods.update { current ->
+            current.mapValues { (_, meta) ->
+                val repoMod = RepoMods.mods.value.find { it.id == meta.id }
+                val artifact = repoMod?.artifacts?.maxByOrNull { it.version }
+                val hasUpdate = if (artifact == null) false else meta.artifact?.version?.let { it < artifact.version } ?: true
+
+                val probs = meta.retrieveProblems()
+                meta.copy(
+                    hasUpdate = hasUpdate,
+                    problems = probs,
+                )
             }
         }
-        mods.update { foundMods }
     }
 
     fun updateModState(id: String, meta: ModMeta?) {
@@ -198,6 +202,7 @@ object LocalMods {
             if (meta == null) newMap.remove(id) else newMap[id] = meta
             newMap
         }
+        recalculateAllProblems()
     }
 
     fun refresh() {
@@ -213,21 +218,65 @@ data class ModMeta(
     @Transient val file: File? = null,
     @Transient val isUnidentified: Boolean = false,
     @Transient val hasUpdate: Boolean = false,
+    @Transient val problems: List<String> = emptyList()
 ) {
+    fun retrieveProblems(): List<String> {
+        if (enabled != true) return emptyList()
+
+        val foundProblems = mutableListOf<String>()
+
+        artifact?.dependencies?.forEach { dep ->
+            val depMod = LocalMods.mods.value[dep.id]
+            if (depMod == null) {
+                foundProblems.add("Dependency ${dep.id} not found")
+            } else if (depMod.enabled == false) {
+                foundProblems.add("Dependency ${dep.id} is disabled")
+            }
+        }
+
+        artifact?.extends?.id?.let { parentId ->
+            val parentMod = LocalMods.mods.value[parentId]
+            if (parentMod == null) {
+                foundProblems.add("Extended $parentId not found")
+            } else if (parentMod.enabled == false) {
+                foundProblems.add("Extended $parentId is disabled")
+            }
+        }
+
+        return foundProblems
+    }
+
+    fun resolveProblems() {
+        if (enabled != true) return
+
+        artifact?.dependencies?.forEach { dep ->
+            val depMod = LocalMods.mods.value[dep.id]
+            if (depMod == null) {
+                RepoMods.installMod(dep.id, null)
+            } else if (depMod.enabled == false) {
+                depMod.enable()
+            }
+        }
+
+        artifact?.extends?.id?.let { parentId ->
+            val parentMod = LocalMods.mods.value[parentId]
+            if (parentMod == null) {
+                RepoMods.installMod(parentId, null)
+            } else if (parentMod.enabled == false) {
+                parentMod.enable()
+            }
+        }
+        LocalMods.refresh()
+    }
+
     fun enable(): Boolean {
         val currentSelf = LocalMods.mods.value[id] ?: this
         val currentFile = currentSelf.file ?: return false
         if (currentSelf.enabled == true && currentFile.exists()) return true
 
-        artifact?.dependencies?.forEach { dep ->
-            val depMod = LocalMods.mods.value[dep.id] ?: return false
-            if (!depMod.enable()) return false
-        }
-
         val parentId = artifact?.extends?.id
         val targetDir = if (parentId != null) {
             val parentMod = LocalMods.mods.value[parentId] ?: return false
-            if (!parentMod.enable()) return false
             File(parentMod.file, "addons/$id")
         } else {
             File(SettingsManager.bepInExFolder, "plugins/${currentFile.name}")
@@ -245,14 +294,6 @@ data class ModMeta(
         val currentFile = currentSelf.file ?: return
         if (currentSelf.enabled == false || !currentFile.exists()) return
 
-        LocalMods.mods.value.values.toList().forEach { other ->
-            val isExtending = other.artifact?.extends?.id == id
-            val isDependent = other.artifact?.dependencies?.any { it.id == id } == true
-            if (isExtending || isDependent) {
-                other.disable()
-            }
-        }
-
         val destination = File(SettingsManager.bepInExFolder, "disabledPlugins/${currentFile.name}")
         if (currentFile.moveTo(destination)) {
             LocalMods.updateModState(id, copy(file = destination, enabled = false))
@@ -268,7 +309,6 @@ data class ModMeta(
     fun update() {
         RepoMods.installMod(id, null)
     }
-
 }
 
 fun File.moveTo(destination: File): Boolean {

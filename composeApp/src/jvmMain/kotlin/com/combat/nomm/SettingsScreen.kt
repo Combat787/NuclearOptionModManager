@@ -152,7 +152,7 @@ fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
         Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Column(
             modifier = Modifier.clip(MaterialTheme.shapes.small)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)).padding(8.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant).padding(8.dp)
         ) {
             content()
         }
@@ -356,6 +356,7 @@ fun SettingsTextFieldRow(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String = "",
+    maxLines: Int = 1,
 ) {
     var localText by remember(value) { mutableStateOf(value) }
 
@@ -365,14 +366,15 @@ fun SettingsTextFieldRow(
             onValueChange(localText)
         }
     }
-
+    
 
     Box {
         Surface(
             shape = MaterialTheme.shapes.extraSmall,
             modifier = Modifier.fillMaxWidth(),
-            color = Color.Transparent
+            color = Color.Transparent,
         ) {
+            
             Row(
                 modifier = Modifier.fillMaxWidth().padding(4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -394,11 +396,12 @@ fun SettingsTextFieldRow(
                                 Text(
                                     text = placeholder,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             innerTextField()
-                        }
+                        },
+                        maxLines = maxLines,
                     )
                 }
             }

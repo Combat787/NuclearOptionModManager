@@ -11,58 +11,54 @@ fun <T> List<T>.sortFilterByQuery(
 ): List<T> {
     if (query.isBlank()) return this
 
-    val scored = ArrayList<Pair<T, Double>>(this.size)
-    for (item in this) {
-        val result = block(item, query)
-        if (result.second >= minSimilarity) {
-            scored.add(result)
-        }
+    return this.mapNotNull {
+        val result = block(it, query)
+        if (result.second >= minSimilarity) result else null
     }
-
-    scored.sortByDescending { it.second }
-
-    val output = ArrayList<T>(scored.size)
-    for (pair in scored) {
-        output.add(pair.first)
-    }
-    return output
+        .sortedByDescending { it.second }
+        .map { it.first }
 }
 
 fun fuzzyPowerScore(query: String, target: String): Double {
     if (query.isEmpty()) return 1.0
-    if (target == query) return 1.0
-
     val q = query.lowercase()
     val t = target.lowercase()
-    val qLen = q.length
-    val tLen = t.length
-
     if (t == q) return 1.0
     if (t.startsWith(q)) return 0.9
 
-    val words = t.split(' ', '-', '_', '.')
-    if (words.any { it.startsWith(q) }) return 0.85
+    val qLen = q.length
+    val tLen = t.length
 
-    val acronym = words.mapNotNull { it.firstOrNull() }.joinToString("")
-    if (acronym.contains(q)) return 0.8
+    var anyWordStarts = false
+    val acronymBuilder = StringBuilder()
+    var nextIsStart = true
 
-    var sequenceIndex = 0
-    var matches = 0
     for (char in t) {
-        if (sequenceIndex < qLen && char == q[sequenceIndex]) {
-            sequenceIndex++
-            matches++
+        if (char == ' ' || char == '-' || char == '_' || char == '.') {
+            nextIsStart = true
+        } else if (nextIsStart) {
+            acronymBuilder.append(char)
+            if (t.startsWith(q, t.indexOf(char))) anyWordStarts = true
+            nextIsStart = false
         }
     }
-    if (matches == qLen) return 0.7
 
+    if (anyWordStarts) return 0.85
+    if (acronymBuilder.toString().contains(q)) return 0.8
+
+    var sequenceIndex = 0
+    for (i in 0 until tLen) {
+        if (sequenceIndex < qLen && t[i] == q[sequenceIndex]) {
+            sequenceIndex++
+        }
+    }
+    if (sequenceIndex == qLen) return 0.7
     if (t.contains(q)) return 0.65
 
     val maxDist = (qLen * 0.4).toInt().coerceAtLeast(1)
     val dist = measureDamerauLevenshtein(q, t, maxDist)
 
     if (dist > maxDist) return 0.0
-
     return 0.5 * (1.0 - dist.toDouble() / max(qLen, tLen))
 }
 
@@ -72,41 +68,39 @@ fun measureDamerauLevenshtein(source: CharSequence, target: CharSequence, thresh
 
     if (sLen == 0) return tLen
     if (tLen == 0) return sLen
-
     if (abs(sLen - tLen) > threshold) return Int.MAX_VALUE
 
-    val row0 = IntArray(tLen + 1)
-    val row1 = IntArray(tLen + 1)
-    val row2 = IntArray(tLen + 1)
+    var prevRow = IntArray(tLen + 1) { it }
+    var currRow = IntArray(tLen + 1)
+    var transRow = IntArray(tLen + 1)
 
-    for (j in 0..tLen) row0[j] = j
+    for (i in 1..sLen) {
+        currRow[0] = i
+        val sChar = source[i - 1]
+        var minRowDist = i
 
-    for (i in 0 until sLen) {
-        val sChar = source[i]
-        row1[0] = i + 1
-
-        var minRowDist = row1[0]
-
-        for (j in 0 until tLen) {
-            val tChar = target[j]
+        for (j in 1..tLen) {
+            val tChar = target[j - 1]
             val cost = if (sChar == tChar) 0 else 1
 
-            var dist = min(row1[j] + 1, row0[j + 1] + 1)
-            dist = min(dist, row0[j] + cost)
+            var dist = min(currRow[j - 1] + 1, prevRow[j] + 1)
+            dist = min(dist, prevRow[j - 1] + cost)
 
-            if (i > 0 && j > 0 && sChar == target[j - 1] && source[i - 1] == tChar) {
-                dist = min(dist, row2[j - 1] + cost)
+            if (i > 1 && j > 1 && sChar == target[j - 2] && source[i - 2] == tChar) {
+                dist = min(dist, transRow[j - 2] + cost)
             }
 
-            row1[j + 1] = dist
+            currRow[j] = dist
             minRowDist = min(minRowDist, dist)
         }
 
         if (minRowDist > threshold) return Int.MAX_VALUE
 
-        System.arraycopy(row0, 0, row2, 0, row0.size)
-        System.arraycopy(row1, 0, row0, 0, row1.size)
+        val temp = transRow
+        transRow = prevRow
+        prevRow = currRow
+        currRow = temp
     }
 
-    return row0[tLen]
+    return prevRow[tLen]
 }
