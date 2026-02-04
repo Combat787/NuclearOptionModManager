@@ -138,7 +138,8 @@ fun ModTitleCard(
                                         text = tag,
                                         modifier = Modifier.padding(horizontal = 8.dp, 2.dp).clip(CircleShape),
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.surfaceVariant
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        maxLines = 1
                                     )
                                 }
                             }

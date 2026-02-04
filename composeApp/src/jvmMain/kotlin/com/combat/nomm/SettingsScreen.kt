@@ -1,15 +1,12 @@
 package com.combat.nomm
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,95 +32,116 @@ import java.io.File
 fun SettingsScreen() {
     val currentConfig by SettingsManager.config
 
-    Column(
-        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        val scope = rememberCoroutineScope()
-        SettingsGroup(title = "Path Configuration") {
-            ClickableSettingsRow(
-                label = "Game Folder", subLabel = currentConfig.gamePath ?: "Not Found", onClick = {
-                    scope.launch {
-                        val directory = FileKit.openDirectoryPicker(
-                            title = "Select Nuclear Option Folder"
-                        )
-                        directory?.file?.path?.let { path ->
-                            val exeFile = File(path, "NuclearOption.exe")
-                            if (exeFile.exists()) SettingsManager.updateConfig(
-                                currentConfig.copy(
-                                    gamePath = path
-                                )
+    val state = rememberScrollState()
+    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            modifier = Modifier.fillMaxHeight()
+                .weight(1f).verticalScroll(state),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Spacer(Modifier.height(8.dp))
+            val scope = rememberCoroutineScope()
+            SettingsGroup(title = "Path Configuration") {
+                ClickableSettingsRow(
+                    label = "Game Folder", subLabel = currentConfig.gamePath ?: "Not Found", onClick = {
+                        scope.launch {
+                            val directory = FileKit.openDirectoryPicker(
+                                title = "Select Nuclear Option Folder"
                             )
+                            directory?.file?.path?.let { path ->
+                                val exeFile = File(path, "NuclearOption.exe")
+                                if (exeFile.exists()) SettingsManager.updateConfig(
+                                    currentConfig.copy(
+                                        gamePath = path
+                                    )
+                                )
+                            }
+                        }
+                    })
+            }
+            SettingsGroup(title = "Manifest") {
+                SettingsTextFieldRow(
+                    label = "Manifest Source URL",
+                    value = currentConfig.manifestUrl,
+                    onValueChange = {
+                        SettingsManager.updateConfig(currentConfig.copy(manifestUrl = it))
+                        RepoMods.fetchManifest()
+                    },
+                    placeholder = "",
+                )
+                SettingsSwitchRow(
+                    label = "Fake Manifest",
+                    subLabel = "Generates Fake Manifest Data useful to test the UI better.",
+                    checked = currentConfig.fakeManifest,
+                    onCheckedChange = { newValue ->
+                        SettingsManager.updateConfig(currentConfig.copy(fakeManifest = newValue))
+                        RepoMods.fetchManifest()
+                    })
+            }
+            SettingsGroup(title = "Appearance") {
+                SettingsColorPicker(
+                    label = "Theme Accent", selectedColor = currentConfig.themeColor, onColorSelected = { newColor ->
+                        SettingsManager.updateConfig(currentConfig.copy(themeColor = newColor))
+                    })
+                SettingsDropdownRow(
+                    label = "Theme Brightness",
+                    subLabel = currentConfig.theme.toString(),
+                    options = Theme.entries.associateBy { theme -> theme.toString() },
+                    onOptionSelected = {
+                        SettingsManager.updateConfig(currentConfig.copy(theme = it))
+                    })
+                SettingsDropdownRow(
+                    label = "Theme Style",
+                    subLabel = currentConfig.paletteStyle.getStringName(),
+                    options = listOf(
+                        PaletteStyle.TonalSpot, PaletteStyle.Neutral, PaletteStyle.Vibrant, PaletteStyle.Expressive
+                    ).associateBy { theme -> theme.getStringName() },
+                    onOptionSelected = {
+                        SettingsManager.updateConfig(currentConfig.copy(paletteStyle = it))
+                    })
+                SettingsDropdownRow(
+                    label = "Theme Contrast",
+                    subLabel = currentConfig.contrast.getStringName(),
+                    options = Contrast.entries.associateBy { contrast -> contrast.getStringName() },
+                    onOptionSelected = {
+                        SettingsManager.updateConfig(currentConfig.copy(contrast = it))
+                    })
+            }
+            SettingsGroup(title = "Folders") {
+                ClickableSettingsRow(
+                    label = "Open Nuclear Option Folder",
+                    subLabel = "Click to open the Folder containing the Logs, Missions and Blocklist.",
+                    onClick = {
+                        Desktop.getDesktop().open(getNuclearOptionFolder())
+                    }
+                )
+                ClickableSettingsRow(
+                    label = "Open Nuclear Option Game Folder",
+                    subLabel = "Click to open the Folder containing the Game Files and BepInEx.",
+                    onClick = {
+                        SettingsManager.config.value.gamePath?.let {
+                            Desktop.getDesktop().open(File(it))
                         }
                     }
-                })
+                )
+            }
+            Spacer(Modifier.height(8.dp))
         }
-        SettingsGroup(title = "Manifest") {
-            SettingsTextFieldRow(
-                label = "Manifest Source URL",
-                value = currentConfig.manifestUrl,
-                onValueChange = {
-                    SettingsManager.updateConfig(currentConfig.copy(manifestUrl = it))
-                    RepoMods.fetchManifest()
-                },
-                placeholder = "",
+        VerticalScrollbar(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(8.dp)
+                .padding(vertical = 16.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            adapter = rememberScrollbarAdapter(state),
+            style = defaultScrollbarStyle().copy(
+                unhoverColor = MaterialTheme.colorScheme.outline,
+                hoverColor = MaterialTheme.colorScheme.primary,
+                thickness = 8.dp,
+                shape = CircleShape
             )
-            SettingsSwitchRow(
-                label = "Fake Manifest",
-                subLabel = "Generates Fake Manifest Data useful to test the UI better.",
-                checked = currentConfig.fakeManifest,
-                onCheckedChange = { newValue ->
-                    SettingsManager.updateConfig(currentConfig.copy(fakeManifest = newValue))
-                    RepoMods.fetchManifest()
-                })
-        }
-        SettingsGroup(title = "Appearance") {
-            SettingsColorPicker(
-                label = "Theme Accent", selectedColor = currentConfig.themeColor, onColorSelected = { newColor ->
-                    SettingsManager.updateConfig(currentConfig.copy(themeColor = newColor))
-                })
-            SettingsDropdownRow(
-                label = "Theme Brightness",
-                subLabel = currentConfig.theme.toString(),
-                options = Theme.entries.associateBy { theme -> theme.toString() },
-                onOptionSelected = {
-                    SettingsManager.updateConfig(currentConfig.copy(theme = it))
-                })
-            SettingsDropdownRow(
-                label = "Theme Style",
-                subLabel = currentConfig.paletteStyle.getStringName(),
-                options = listOf(
-                    PaletteStyle.TonalSpot, PaletteStyle.Neutral, PaletteStyle.Vibrant, PaletteStyle.Expressive
-                ).associateBy { theme -> theme.getStringName() },
-                onOptionSelected = {
-                    SettingsManager.updateConfig(currentConfig.copy(paletteStyle = it))
-                })
-            SettingsDropdownRow(
-                label = "Theme Contrast",
-                subLabel = currentConfig.contrast.getStringName(),
-                options = Contrast.entries.associateBy { contrast -> contrast.getStringName() },
-                onOptionSelected = {
-                    SettingsManager.updateConfig(currentConfig.copy(contrast = it))
-                })
-        }
-        SettingsGroup(title = "Folders") {
-            ClickableSettingsRow(
-                label = "Open Nuclear Option Folder",
-                subLabel = "Click to open the Folder containing the Logs, Missions and Blocklist.",
-                onClick =  {
-                    Desktop.getDesktop().open(getNuclearOptionFolder())
-                }
-            )
-            ClickableSettingsRow(
-                label = "Open Nuclear Option Game Folder",
-                subLabel = "Click to open the Folder containing the Game Files and BepInEx.",
-                onClick =  {
-                    SettingsManager.config.value.gamePath?.let {
-                        Desktop.getDesktop().open(File(it))
-                    }
-                }
-            )
-        }
+        )
     }
 }
 
@@ -164,40 +182,26 @@ fun ClickableSettingsRow(label: String, subLabel: String, onClick: () -> Unit) {
 
     Surface(
 
-        shape = MaterialTheme.shapes.extraSmall, modifier = Modifier, onClick = onClick, color = Color.Transparent
+        shape = MaterialTheme.shapes.small, modifier = Modifier, onClick = onClick, color = Color.Transparent
 
     ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(4.dp)) {
 
-        Row(
+            Text(label, style = MaterialTheme.typography.bodyLarge)
 
-            modifier = Modifier.fillMaxWidth().padding(4.dp),
+            Text(
 
-            horizontalArrangement = Arrangement.SpaceBetween,
+                subLabel,
 
-            verticalAlignment = Alignment.CenterVertically
+                style = MaterialTheme.typography.bodySmall,
 
-        ) {
+                color = MaterialTheme.colorScheme.onSurfaceVariant
 
-            Column(modifier = Modifier.weight(1f)) {
-
-                Text(label, style = MaterialTheme.typography.bodyLarge)
-
-                Text(
-
-                    subLabel,
-
-                    style = MaterialTheme.typography.bodySmall,
-
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-
-                )
-
-            }
+            )
 
         }
 
     }
-
 }
 
 @Composable
@@ -211,7 +215,7 @@ fun <T> SettingsDropdownRow(
 
     Box {
         Surface(
-            shape = MaterialTheme.shapes.extraSmall,
+            shape = MaterialTheme.shapes.small,
             modifier = Modifier.fillMaxWidth(),
             onClick = { expanded = true },
             color = Color.Transparent
@@ -296,7 +300,7 @@ fun SettingsColorPicker(
             }, contentAlignment = Alignment.CenterStart
         ) {
             Box(
-                modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.extraSmall)
+                modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.small)
                     .background(Brush.horizontalGradient(List(360) { Color.hsv(it.toFloat(), 1f, 1f) }))
             )
             val (h, _, _) = selectedColor.toHsv()
@@ -324,7 +328,7 @@ fun SettingsSwitchRow(
 
     Box {
         Surface(
-            shape = MaterialTheme.shapes.extraSmall,
+            shape = MaterialTheme.shapes.small,
             modifier = Modifier.fillMaxWidth(),
             onClick = { onCheckedChange(!checked) },
             color = Color.Transparent
@@ -350,13 +354,14 @@ fun SettingsSwitchRow(
     }
 }
 
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsTextFieldRow(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String = "",
-    maxLines: Int = 1,
 ) {
     var localText by remember(value) { mutableStateOf(value) }
 
@@ -366,45 +371,44 @@ fun SettingsTextFieldRow(
             onValueChange(localText)
         }
     }
-    
 
-    Box {
-        Surface(
-            shape = MaterialTheme.shapes.extraSmall,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+
+        BasicTextField(
+            value = localText,
+            onValueChange = { localText = it },
             modifier = Modifier.fillMaxWidth(),
-            color = Color.Transparent,
-        ) {
-            
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(label, style = MaterialTheme.typography.bodyLarge)
-
-                    BasicTextField(
-                        value = localText,
-                        onValueChange = { localText = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        textStyle = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        decorationBox = { innerTextField ->
-                            if (localText.isEmpty()) {
-                                Text(
-                                    text = placeholder,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            innerTextField()
-                        },
-                        maxLines = maxLines,
-                    )
+            textStyle = MaterialTheme.typography.bodyMediumEmphasized.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            singleLine = true,
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier
+                        .border(Dp.Hairline, MaterialTheme.colorScheme.outline,MaterialTheme.shapes.small)
+                        .padding(4.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (localText.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    innerTextField()
                 }
             }
-        }
+        )
     }
 }

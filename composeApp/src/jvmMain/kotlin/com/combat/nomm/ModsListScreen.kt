@@ -288,7 +288,8 @@ fun ModItem(mod: Extension, onClick: () -> Unit) {
                                 text = tag,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.surfaceVariant
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                maxLines = 1
                             )
                         }
                     }
