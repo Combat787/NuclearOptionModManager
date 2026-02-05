@@ -15,10 +15,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.times
 import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import io.github.vinceglb.filekit.FileKit
@@ -80,9 +81,14 @@ fun SettingsScreen() {
             }
             SettingsGroup(title = "Appearance") {
                 SettingsColorPicker(
-                    label = "Theme Accent", selectedColor = currentConfig.themeColor, onColorSelected = { newColor ->
-                        SettingsManager.updateConfig(currentConfig.copy(themeColor = newColor))
-                    })
+                    label = "Theme Accent",
+                    selectedHue = currentConfig.hueValue,
+                    onHueSelected = { newHue ->
+                        SettingsManager.updateConfig(
+                            currentConfig.copy(hueValue = newHue)
+                        )
+                    }
+                )
                 SettingsDropdownRow(
                     label = "Theme Brightness",
                     subLabel = currentConfig.theme.toString(),
@@ -170,37 +176,37 @@ fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
         Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Column(
             modifier = Modifier.clip(MaterialTheme.shapes.small)
-                .background(MaterialTheme.colorScheme.surfaceVariant).padding(8.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant).padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             content()
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ClickableSettingsRow(label: String, subLabel: String, onClick: () -> Unit) {
+    val shape = MaterialTheme.shapes.small
 
     Surface(
-
-        shape = MaterialTheme.shapes.small, modifier = Modifier, onClick = onClick, color = Color.Transparent
-
+        onClick = onClick,
+        shape = shape,
+        color = Color.Transparent,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clip(shape)
+            .pointerHoverIcon(PointerIcon.Hand)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(4.dp)) {
-
+        Column(modifier = Modifier.padding(4.dp), verticalArrangement = Arrangement.Center) {
             Text(label, style = MaterialTheme.typography.bodyLarge)
-
             Text(
-
                 subLabel,
-
                 style = MaterialTheme.typography.bodySmall,
-
                 color = MaterialTheme.colorScheme.onSurfaceVariant
-
             )
-
         }
-
     }
 }
 
@@ -213,10 +219,12 @@ fun <T> SettingsDropdownRow(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
+    val shape = MaterialTheme.shapes.small
+    
     Box {
         Surface(
-            shape = MaterialTheme.shapes.small,
-            modifier = Modifier.fillMaxWidth(),
+            shape = shape,
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(shape).pointerHoverIcon(PointerIcon.Hand),
             onClick = { expanded = true },
             color = Color.Transparent
         ) {
@@ -239,7 +247,7 @@ fun <T> SettingsDropdownRow(
         DropdownMenu(
             modifier = Modifier, expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
-                DropdownMenuItem(text = { Text(option.key) }, onClick = {
+                DropdownMenuItem(text = { Text(option.key) }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand), onClick = {
                     onOptionSelected(option.value)
                     expanded = false
                 })
@@ -248,73 +256,61 @@ fun <T> SettingsDropdownRow(
     }
 }
 
-private fun Color.toHsv(): Triple<Float, Float, Float> {
-    val r = red
-    val g = green
-    val b = blue
-
-    val max = maxOf(r, g, b)
-    val min = minOf(r, g, b)
-    val delta = max - min
-
-    val h = when {
-        delta == 0f -> 0f
-        max == r -> ((g - b) / delta % 6 + 6) % 6
-        max == g -> (b - r) / delta + 2
-        else -> (r - g) / delta + 4
-    } * 60f
-
-    val s = if (max == 0f) 0f else delta / max
-    val v = max
-
-    return Triple(h, s, v)
-}
 
 @Composable
 fun SettingsColorPicker(
     label: String,
-    selectedColor: Color,
+    selectedHue: Float,
     width: Dp = 256.dp,
-    onColorSelected: (Color) -> Unit,
+    onHueSelected: (Float) -> Unit,
 ) {
-
-
-    Column(modifier = Modifier.padding(4.dp)) {
+    val hueColors = remember {
+        List(64) { i ->
+            Color.hsv((i / 63f) * 360f, 1f, 1f)
+        }
+    }
+    
+    Column(modifier = Modifier.padding(4.dp),verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(label, style = MaterialTheme.typography.bodyLarge)
 
-        Spacer(Modifier.height(8.dp))
-
         Box(
-            modifier = Modifier.width(width).height(32.dp).pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown()
-                    val initialHue = (down.position.x / size.width).coerceIn(0f, 0.99f) * 360f
-                    onColorSelected(Color.hsv(initialHue, 1f, 1f))
-
-                    drag(down.id) { change ->
-                        val newHue = (change.position.x / size.width).coerceIn(0f, 0.99f) * 360f
-                        onColorSelected(Color.hsv(newHue, 1f, 1f))
-                        change.consume()
-                    }
-                }
-            }, contentAlignment = Alignment.CenterStart
+            modifier = Modifier
+                .width(width)
+                .height(32.dp),
+            contentAlignment = Alignment.CenterStart
         ) {
             Box(
-                modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.small)
-                    .background(Brush.horizontalGradient(List(360) { Color.hsv(it.toFloat(), 1f, 1f) }))
-            )
-            val (h, _, _) = selectedColor.toHsv()
-            val percent = (h / 360f).coerceIn(0f, 1f)
-
-            Box(
-                Modifier.offset(x = (percent * width) - 3.dp).requiredHeight(44.dp).width(6.dp).clip(CircleShape)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(MaterialTheme.shapes.small)
                     .background(
-                        MaterialTheme.colorScheme.background
-                    ).border(Dp.Hairline, MaterialTheme.colorScheme.outline)
+                        Brush.horizontalGradient(
+                            colors = hueColors
+                        )
+                    )
+                    .pointerHoverIcon(PointerIcon.Hand).pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            val initialHue = (down.position.x / size.width).coerceIn(0f, 1f)
+                            onHueSelected(initialHue)
+
+                            drag(down.id) { change ->
+                                val newHue = (change.position.x / size.width).coerceIn(0f, 1f)
+                                onHueSelected(newHue)
+                                change.consume()
+                            }
+                        }
+                    }
+            )
+            Box(
+                Modifier
+                    .offset(x = (selectedHue * width.value).dp - 4.dp)
+                    .requiredHeight(44.dp)
+                    .width(8.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
             )
         }
-
-        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -326,10 +322,9 @@ fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
 
-    Box {
         Surface(
             shape = MaterialTheme.shapes.small,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(MaterialTheme.shapes.small).pointerHoverIcon(PointerIcon.Hand),
             onClick = { onCheckedChange(!checked) },
             color = Color.Transparent
         ) {
@@ -352,7 +347,7 @@ fun SettingsSwitchRow(
             }
         }
     }
-}
+
 
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -375,6 +370,7 @@ fun SettingsTextFieldRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Min)
             .padding(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -395,7 +391,7 @@ fun SettingsTextFieldRow(
             decorationBox = { innerTextField ->
                 Box(
                     modifier = Modifier
-                        .border(Dp.Hairline, MaterialTheme.colorScheme.outline,MaterialTheme.shapes.small)
+                        .border(Dp.Hairline, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
                         .padding(4.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {

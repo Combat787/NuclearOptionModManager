@@ -12,7 +12,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -57,7 +60,7 @@ fun SearchScreen(
                     )
                     Button(
                         onClick = { RepoMods.fetchManifest() },
-                        modifier = Modifier.fillMaxHeight(),
+                        modifier = Modifier.fillMaxHeight().clip(MaterialTheme.shapes.small).clipToBounds().pointerHoverIcon(PointerIcon.Hand),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondary,
                             contentColor = MaterialTheme.colorScheme.onSecondary,
@@ -208,7 +211,7 @@ fun ModItem(mod: Extension, onClick: () -> Unit) {
     val modMeta = installedMods[mod.id]
 
     Card(
-        modifier = Modifier,
+        modifier = Modifier.clip(MaterialTheme.shapes.small).clipToBounds().pointerHoverIcon(PointerIcon.Hand),
         shape = MaterialTheme.shapes.small,
         onClick = onClick,
     ) {
@@ -251,28 +254,33 @@ fun ModItem(mod: Extension, onClick: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(
+                            painterResource(
+                                when {
+                                    modMeta == null -> {
+                                        Res.drawable.cloud_24px
+                                    }
 
-                    Icon(
-                        painterResource(
-                            when {
-                                modMeta == null -> {
-                                    Res.drawable.cloud_24px
+                                    !modMeta.isUnidentified -> {
+                                        Res.drawable.cloud_done_24px
+                                    }
+
+                                    else -> Res.drawable.computer_24px
                                 }
-
-                                !modMeta.isUnidentified -> {
-                                    Res.drawable.cloud_done_24px
-                                }
-
-                                else -> Res.drawable.computer_24px
-                            }
-                        ), null, Modifier.size(24.dp)
-                    )
+                            ), null, Modifier.size(24.dp)
+                        )
+                        Text(
+                            if (modMeta?.isUnidentified ?: false) modMeta.file!!.name else mod.id,
+                            style = MaterialTheme.typography.labelMedium, maxLines = 1
+                        )
+                    }
 
                     if (mod.downloadCount != null) {
                         VerticalDivider(modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Icon(painterResource(Res.drawable.download_24px), null, Modifier.size(24.dp))
-                            Text(mod.downloadCount.toString(), style = MaterialTheme.typography.labelMedium)
+                            Text(mod.downloadCount.toString(), style = MaterialTheme.typography.labelLargeEmphasized, maxLines = 1)
                         }
                     }
     

@@ -28,8 +28,11 @@ data class Configuration(
     val fakeManifest: Boolean = false,
     val manifestUrl: String = "https://kopterbuzz.github.io/NOModManifestTesting/manifest/manifest.json",
     val cachedManifest: Manifest = emptyList(),
-    @Serializable(with = ColorSerializer::class) val themeColor: Color = Color.Green,
-)
+    val hueValue: Float = 0.3f,
+) {
+    val themeColor: Color
+        get() = Color.hsv(hueValue * 360f, 1f, 1f)
+}
 
 object SettingsManager {
     val config: State<Configuration>

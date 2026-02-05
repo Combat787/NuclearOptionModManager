@@ -17,7 +17,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -86,6 +89,10 @@ fun ModTitleCard(
     mod: Extension,
     onBack: () -> Unit,
 ) {
+    
+    val installedMods by LocalMods.mods.collectAsState()
+
+    val modMeta = installedMods[mod.id]
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = MaterialTheme.shapes.medium,
@@ -121,13 +128,37 @@ fun ModTitleCard(
                                 }
                             },
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1
                         )
                         VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(
+                                painterResource(
+                                    when {
+                                        modMeta == null -> {
+                                            Res.drawable.cloud_24px
+                                        }
+
+                                        !modMeta.isUnidentified -> {
+                                            Res.drawable.cloud_done_24px
+                                        }
+
+                                        else -> Res.drawable.computer_24px
+                                    }
+                                ), null, Modifier.size(24.dp)
+                            )
+                            Text(
+                                if (modMeta?.isUnidentified ?: false) modMeta.file!!.name else mod.id,
+                                style = MaterialTheme.typography.bodySmall, maxLines = 1
+                            )
+                        }
+
+                        VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Icon(painterResource(Res.drawable.download_24px), null, Modifier.size(24.dp))
-                            Text(mod.downloadCount.toString(), style = MaterialTheme.typography.bodyMedium)
+                            Text(mod.downloadCount.toString(), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                         }
 
                         VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
@@ -152,28 +183,34 @@ fun ModTitleCard(
             val installedMods by LocalMods.mods.collectAsState()
             val taskState = installStatuses[mod.id]
             val modMeta = installedMods[mod.id]
-            ModActions(taskState, modMeta, mod)
+
+            val controlSize = 40.dp
+            val iconSize= 28.dp
+            ModActions(taskState, modMeta, mod, controlSize, iconSize)
 
             IconButton(
                 onClick = onBack, colors = IconButtonDefaults.iconButtonColors(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                ),
+                modifier = Modifier.size(controlSize).clip(CircleShape).clipToBounds().pointerHoverIcon(PointerIcon.Hand)
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.close_24px),
                     contentDescription = "Close",
+                    modifier = Modifier.size(iconSize)
                 )
             }
         }
     }
 }
-
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun ModActions(
     taskState: TaskState?,
     modMeta: ModMeta?,
     mod: Extension,
+    controlSize: Dp = 40.dp,
+    iconSize: Dp = 24.dp,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -181,8 +218,6 @@ fun ModActions(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        val controlSize = 40.dp
-        val iconSize = 24.dp
         when {
             taskState != null -> {
                 val animatedProgress by animateFloatAsState(
@@ -196,7 +231,7 @@ fun ModActions(
                 ) {
                     CircularProgressIndicator(
                         progress = { animatedProgress },
-                        modifier = Modifier.size(controlSize*1.2f),
+                        modifier = Modifier.size(controlSize * 1.2f),
                         strokeWidth = 3.dp,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -205,7 +240,10 @@ fun ModActions(
                         onClick = {
                             if (taskState.phase == TaskState.Phase.DOWNLOADING) taskState.cancel()
                         },
-                        modifier = Modifier.size(controlSize)
+                        modifier = Modifier
+                            .size(controlSize)
+                            .clip(CircleShape).clipToBounds()
+                            .pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Icon(
                             painter = if (taskState.phase == TaskState.Phase.DOWNLOADING)
@@ -213,7 +251,7 @@ fun ModActions(
                             else
                                 painterResource(Res.drawable.unarchive_24px),
                             contentDescription = null,
-                            modifier = Modifier.size(iconSize/2*3),
+                            modifier = Modifier.size(iconSize / 2 * 3),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -221,50 +259,57 @@ fun ModActions(
             }
             modMeta != null -> {
                 if (modMeta.problems.isNotEmpty()) {
-                    TooltipBox(
-                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
-                            TooltipAnchorPosition.Above
-                        ),
-                        state = rememberTooltipState(),
-                        tooltip = {
-                            PlainTooltip(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                maxWidth = Dp.Unspecified,
+                    BadgedBox(
+                        badge = {
+                            Badge(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                                modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
                             ) {
-                                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
-                                    modMeta.problems.forEachIndexed { i, problem ->
-                                        Text(
-                                            text = problem,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            overflow = TextOverflow.Visible,
-                                        )
-                                        if (i != modMeta.problems.size - 1) {
-                                            HorizontalDivider(modifier = Modifier.padding(horizontal = 2.dp).fillMaxWidth(),
-                                                color = MaterialTheme.colorScheme.onErrorContainer)
-                                        }
-                                    }
-                                }
+                                Text(modMeta.problems.size.toString())
                             }
                         }
                     ) {
-                        IconButton(
-                            onClick = { modMeta.resolveProblems() },
-                            modifier = Modifier.size(controlSize)
-                        ) {
-                            BadgedBox(
-                                badge = {
-                                    if (modMeta.problems.isNotEmpty()) {
-                                        Badge(
-                                            containerColor = MaterialTheme.colorScheme.error,
-                                            contentColor = MaterialTheme.colorScheme.onError
-                                        ) {
-                                            Text(modMeta.problems.size.toString())
+                        TooltipBox(
+                            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+                                TooltipAnchorPosition.Above
+                            ),
+                            state = rememberTooltipState(),
+                            tooltip = {
+                                PlainTooltip(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                    maxWidth = Dp.Unspecified,
+                                ) {
+                                    Column(modifier = Modifier.width(IntrinsicSize.Max)) {
+                                        modMeta.problems.forEachIndexed { i, problem ->
+                                            Text(
+                                                text = problem,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                overflow = TextOverflow.Visible,
+                                            )
+                                            if (i != modMeta.problems.size - 1) {
+                                                HorizontalDivider(
+                                                    modifier = Modifier
+                                                        .padding(horizontal = 2.dp)
+                                                        .fillMaxWidth(),
+                                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                                )
+                                            }
                                         }
                                     }
                                 }
+                            },
+                            modifier = Modifier
+                                .size(controlSize)
+                                .clip(CircleShape).clipToBounds()
+                                .pointerHoverIcon(PointerIcon.Hand)
+                        ) {
+                            IconButton(
+                                onClick = { modMeta.resolveProblems() },
+                                modifier = Modifier.fillMaxSize()
                             ) {
                                 Icon(
                                     painterResource(Res.drawable.warning_24px),
@@ -276,10 +321,14 @@ fun ModActions(
                         }
                     }
                 }
+
                 if (modMeta.hasUpdate) {
                     IconButton(
                         onClick = { modMeta.update() },
-                        modifier = Modifier.size(controlSize)
+                        modifier = Modifier
+                            .size(controlSize)
+                            .clip(CircleShape).clipToBounds()
+                            .pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Icon(
                             painterResource(Res.drawable.refresh_24px),
@@ -292,7 +341,10 @@ fun ModActions(
 
                 IconButton(
                     onClick = { modMeta.uninstall() },
-                    modifier = Modifier.size(controlSize)
+                    modifier = Modifier
+                        .size(controlSize)
+                        .clip(CircleShape).clipToBounds()
+                        .pointerHoverIcon(PointerIcon.Hand)
                 ) {
                     Icon(
                         painterResource(Res.drawable.delete_24px),
@@ -307,12 +359,9 @@ fun ModActions(
                     onCheckedChange = { isEnabled ->
                         if (isEnabled) modMeta.enable() else modMeta.disable()
                     },
-                    modifier = Modifier
-                        .height(32.dp)
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
                 )
-
             }
-
             else -> {
                 IconButton(
                     onClick = {
@@ -320,7 +369,10 @@ fun ModActions(
                             if (mod.real) RepoMods.installMod(mod.id, latest.version)
                         }
                     },
-                    modifier = Modifier.size(controlSize)
+                    modifier = Modifier
+                        .size(controlSize)
+                        .clip(CircleShape).clipToBounds()
+                        .pointerHoverIcon(PointerIcon.Hand)
                 ) {
                     Icon(
                         painterResource(Res.drawable.download_24px),
@@ -385,7 +437,7 @@ private fun NavItem(
     else MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(
-        modifier = modifier.fillMaxHeight().clip(CircleShape).background(backgroundColor).clickable(onClick = onClick)
+        modifier = modifier.fillMaxHeight().clip(CircleShape).background(backgroundColor).pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick)
             .padding(8.dp), contentAlignment = Alignment.Center
     ) {
         Row(
@@ -429,19 +481,28 @@ fun ModDetailsContent(mod: Extension) {
             ) {
 
                 Spacer(Modifier.height(0.dp))
-                if (mod.infoUrl.isNotEmpty()) {
-                    Text(
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Info: ") }
-                            withLink(LinkAnnotation.Url(mod.infoUrl)) {
-                                withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                                    append(mod.infoUrl)
-                                }
+                if (mod.infoUrl?.isNotEmpty() ?: false) {
+                    mod.urls.plus(UrlReference("Info", mod.infoUrl))
+                        .filter { (_, url) ->
+                            try {
+                                java.net.URI(url).run { host != null && scheme != null }
+                            } catch (_: Exception) {
+                                false
                             }
-                        }, style = MaterialTheme.typography.bodyMedium
-                    )
+                        }
+                        .forEach { (urlName, url) ->
+                            Text(
+                                buildAnnotatedString {
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("$urlName: ") }
+                                    withLink(LinkAnnotation.Url(url)) {
+                                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
+                                            append(url)
+                                        }
+                                    }
+                                }, style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
                 }
                 Text(
                     text = mod.description,
@@ -588,7 +649,7 @@ fun ArtifactCard(
                     verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     IconButton(
-                        onClick = onInstall, enabled = !isInstalled , modifier = Modifier.size(40.dp)
+                        onClick = onInstall, enabled = !isInstalled , modifier = Modifier.size(40.dp).clip(CircleShape).clipToBounds().pointerHoverIcon(if (!isInstalled) PointerIcon.Hand else PointerIcon.Default)
                     ) {
                         Icon(
                             painter = if (isInstalled) painterResource(Res.drawable.check_24px) else painterResource(Res.drawable.download_24px),
@@ -599,7 +660,7 @@ fun ArtifactCard(
                     }
 
                     IconButton(
-                        onClick = onViewDependencies, modifier = Modifier.size(40.dp)
+                        onClick = onViewDependencies, modifier = Modifier.size(40.dp).clip(CircleShape).clipToBounds().pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Icon(
                             painter = painterResource(Res.drawable.rule_24px),
@@ -760,7 +821,7 @@ private fun DependencyItemCard(
         color = if (isIncompatible) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
         else MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = MaterialTheme.shapes.small,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clipToBounds().pointerHoverIcon(PointerIcon.Hand)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),

@@ -9,11 +9,12 @@ typealias Manifest = List<Extension>
 @Serializable
 data class Extension(
     val id: String,
-    val displayName: String,
-    val description: String,
+    val displayName: String = id,
+    val description: String = "",
     val tags: List<String> = emptyList(),
-    val infoUrl: String,
-    val authors: List<String>,
+    val infoUrl: String? = null,
+    val urls: List<UrlReference> = emptyList(),
+    val authors: List<String> = emptyList(),
     val artifacts: List<Artifact>,
     val downloadCount: Int? = null,
     @Transient val real: Boolean = true
@@ -21,9 +22,9 @@ data class Extension(
 
 @Serializable
 data class Artifact(
-    val fileName: String,
+    val fileName: String? = null,
     val version: Version,
-    val category: String,
+    val category: String? = null,
     val type: String? = null,
     val gameVersion: String? = null,
     val downloadUrl: String,
@@ -34,9 +35,15 @@ data class Artifact(
 )
 
 @Serializable
+data class UrlReference(
+    val name: String,
+    val url: String,
+)
+
+@Serializable
 data class PackageReference(
     val id: String,
-    val version: Version?
+    val version: Version? = null
 ) {
 }
 
@@ -99,7 +106,6 @@ fun fetchFakeManifest(): List<Extension> {
                 deps.add(PackageReference(allIds[rnd.nextInt(modCount)], Version(1, rnd.nextInt(10), 0)))
             }
 
-            // Optimization: Faster random string than UUID.randomUUID()
             val fastHash = java.lang.Long.toHexString(rnd.nextLong()) + java.lang.Long.toHexString(rnd.nextLong())
 
             artifacts.add(Artifact(

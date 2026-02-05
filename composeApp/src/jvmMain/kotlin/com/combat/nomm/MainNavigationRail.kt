@@ -8,6 +8,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
@@ -77,6 +79,7 @@ fun MainNavigationRail(
                     onClick = { RepoMods.downloadBepInEx() },
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.clip(MaterialTheme.shapes.large).pointerHoverIcon(PointerIcon.Hand)
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -128,6 +131,7 @@ fun MainNavigationRail(
                     },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.clip(MaterialTheme.shapes.large).pointerHoverIcon(PointerIcon.Hand)
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.play_circle_24px),
@@ -149,6 +153,7 @@ private fun RailDestination(
     label: String,
 ) {
     NavigationRailItem(
+        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
         selected = selected,
         onClick = onClick,
         icon = { Icon(painterResource(drawableResource), null, modifier = Modifier.size(40.dp)) },

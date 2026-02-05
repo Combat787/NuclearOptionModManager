@@ -12,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import nuclearoptionmodmanager.composeapp.generated.resources.*
@@ -31,7 +33,14 @@ fun LibraryScreen(
         localMods.values.map { modMeta ->
             RepoMods.mods.value.find { it.id == modMeta.id }
                 ?: SettingsManager.config.value.cachedManifest.find { it.id == modMeta.id } ?: Extension(
-                    modMeta.id, modMeta.id, "", emptyList(), "", emptyList(), emptyList()
+                    id = modMeta.id,
+                    displayName = modMeta.id,
+                    description = "",
+                    tags = emptyList(),
+                    infoUrl = "",
+                    urls = emptyList(),
+                    authors = emptyList(),
+                    artifacts = emptyList()
                 )
         }
     }
@@ -60,7 +69,7 @@ fun LibraryScreen(
                     Box {
                         Button(
                             onClick = { menuExpanded = true },
-                            modifier = Modifier.fillMaxHeight(),
+                            modifier = Modifier.fillMaxHeight().pointerHoverIcon(PointerIcon.Hand),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.secondary,
                                 contentColor = MaterialTheme.colorScheme.onSecondary,
@@ -90,7 +99,7 @@ fun LibraryScreen(
                     }
                     Button(
                         onClick = { LocalMods.refresh() },
-                        modifier = Modifier.fillMaxHeight(),
+                        modifier = Modifier.fillMaxHeight().pointerHoverIcon(PointerIcon.Hand),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondary,
                             contentColor = MaterialTheme.colorScheme.onSecondary,
