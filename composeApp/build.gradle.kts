@@ -41,11 +41,8 @@ kotlin {
             implementation(libs.compose.colorpicker)
             implementation(libs.materialKolor)
 
-            implementation("org.apache.commons:commons-compress:1.28.0")
-            implementation("org.tukaani:xz:1.11")
-            implementation("com.github.junrar:junrar:7.5.7")
+            
             implementation("org.slf4j:slf4j-simple:2.0.17")
-            implementation("com.formdev:flatlaf:3.7")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -57,6 +54,9 @@ kotlin {
             implementation(libs.jetbrains.navigation3.ui)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            
+            implementation("net.sf.sevenzipjbinding:sevenzipjbinding:16.02-2.01")
+            implementation("net.sf.sevenzipjbinding:sevenzipjbinding-all-platforms:16.02-2.01")
         }
     }
 }
@@ -69,7 +69,7 @@ compose.desktop {
 
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
 
-            packageVersion = "2.0.0"
+            packageVersion = "2.1.0"
             packageName = "Nuclear Option Mod Manager"
             vendor = "Combat"
             description = "A Mod Manager For Nuclear Option"

@@ -1,6 +1,5 @@
 package com.combat.nomm
 
-import com.github.junrar.Archive
 import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -10,13 +9,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.apache.commons.compress.archivers.sevenz.SevenZFile
-import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
-import java.io.ByteArrayInputStream
 import java.io.File
-import java.io.InputStream
 import java.util.concurrent.ConcurrentHashMap
-import java.util.zip.ZipInputStream
+import net.sf.sevenzipjbinding.*
+import net.sf.sevenzipjbinding.util.ByteArrayStream
+import java.io.FileOutputStream
 
 object Installer {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -46,6 +43,7 @@ object Installer {
                     }
                     onSuccess()
                 } catch (e: Exception) {
+                    e.printStackTrace()
                     if (e is CancellationException) throw e
                     updateState(modId, TaskState(TaskState.Phase.EXTRACTING, null, e.localizedMessage), isBepInEx)
                 } finally {
@@ -82,72 +80,47 @@ object Installer {
         }
         throw lastErr ?: Exception("Failed to download")
     }
-
+    
     private fun extract(bytes: ByteArray, url: String, target: File, noOverwrite: Boolean) {
-        val ext = url.substringAfterLast(".", "").lowercase()
         runCatching {
-            when (ext) {
-                "zip" -> extractZip(ByteArrayInputStream(bytes), target, noOverwrite)
-                "7z" -> extract7z(bytes, target, noOverwrite)
-                "rar" -> extractRar(ByteArrayInputStream(bytes), target, noOverwrite)
-                else -> {
+            ByteArrayStream(bytes, false).use { inStream ->
+
+                val archive = try {
+                    SevenZip.openInArchive(null, inStream)
+                } catch (_: SevenZipException) {
+                    null
+                }
+
+                if (archive != null) {
+                    archive.use { arc ->
+                        arc.simpleInterface.archiveItems.forEach { item ->
+                            val file = File(target, item.path)
+                            if (item.isFolder) {
+                                file.mkdirs()
+                            } else {
+                                if (!noOverwrite || !file.exists()) {
+                                    file.parentFile?.mkdirs()
+                                    FileOutputStream(file).use { out ->
+                                        item.extractSlow { data ->
+                                            out.write(data)
+                                            data.size
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
                     val file = File(target, url.substringAfterLast("/"))
-                    if (!noOverwrite || !file.exists()) file.writeBytes(bytes)
+                    if (!noOverwrite || !file.exists()) {
+                        file.parentFile?.mkdirs()
+                        file.writeBytes(bytes)
+                    }
                 }
             }
         }.onFailure {
             if (!noOverwrite) target.deleteRecursively()
             throw it
-        }
-    }
-
-    private fun extractZip(input: InputStream, target: File, noOverwrite: Boolean) {
-        ZipInputStream(input).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                val file = File(target, entry.name)
-                if (entry.isDirectory) file.mkdirs() else {
-                    if (!noOverwrite || !file.exists()) {
-                        file.parentFile?.mkdirs()
-                        file.outputStream().use { zip.copyTo(it) }
-                    }
-                }
-                zip.closeEntry()
-            }
-        }
-    }
-
-    private fun extract7z(bytes: ByteArray, target: File, noOverwrite: Boolean) {
-        SevenZFile.builder().setSeekableByteChannel(SeekableInMemoryByteChannel(bytes)).get().use { sz ->
-            while (true) {
-                val entry = sz.nextEntry ?: break
-                val file = File(target, entry.name)
-                if (entry.isDirectory) file.mkdirs() else {
-                    if (!noOverwrite || !file.exists()) {
-                        file.parentFile?.mkdirs()
-                        file.outputStream().use { out ->
-                            val buffer = ByteArray(8192)
-                            var len: Int
-                            while (sz.read(buffer).also { len = it } != -1) out.write(buffer, 0, len)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private fun extractRar(input: InputStream, target: File, noOverwrite: Boolean) {
-        Archive(input).use { arc ->
-            while (true) {
-                val entry = arc.nextFileHeader() ?: break
-                val file = File(target, entry.fileName)
-                if (entry.isDirectory) file.mkdirs() else {
-                    if (!noOverwrite || !file.exists()) {
-                        file.parentFile?.mkdirs()
-                        file.outputStream().use { arc.extractFile(entry, it) }
-                    }
-                }
-            }
         }
     }
 

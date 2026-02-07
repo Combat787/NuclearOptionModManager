@@ -8,6 +8,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import net.sf.sevenzipjbinding.SevenZip
 import nuclearoptionmodmanager.composeapp.generated.resources.Res
 import nuclearoptionmodmanager.composeapp.generated.resources.iconpng
 import org.jetbrains.compose.resources.painterResource
@@ -18,6 +19,7 @@ val LocalWindowState = compositionLocalOf<WindowState> {
 }
 
 fun main() = application {
+    SevenZip.initSevenZipFromPlatformJAR()
     val windowState = rememberWindowState()
     
     Window(

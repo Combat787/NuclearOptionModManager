@@ -31,11 +31,17 @@ import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.io.File
 
+
 @Composable
 fun SettingsScreen() {
     val currentConfig by SettingsManager.config
     val uriHandler = LocalUriHandler.current
     val state = rememberScrollState()
+
+    val isScrollable by remember {
+        derivedStateOf { state.maxValue > 0 }
+    }
+    
     Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(
             modifier = Modifier.fillMaxHeight().weight(1f).verticalScroll(state),
@@ -147,17 +153,19 @@ fun SettingsScreen() {
             }
             Spacer(Modifier.height(8.dp))
         }
-        VerticalScrollbar(
-            modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 16.dp).clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            adapter = rememberScrollbarAdapter(state),
-            style = defaultScrollbarStyle().copy(
-                unhoverColor = MaterialTheme.colorScheme.outline,
-                hoverColor = MaterialTheme.colorScheme.primary,
-                thickness = 8.dp,
-                shape = CircleShape
+        if (isScrollable) {
+            VerticalScrollbar(
+                modifier = Modifier.fillMaxHeight().width(8.dp).padding(vertical = 16.dp).clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                adapter = rememberScrollbarAdapter(state),
+                style = defaultScrollbarStyle().copy(
+                    unhoverColor = MaterialTheme.colorScheme.outline,
+                    hoverColor = MaterialTheme.colorScheme.primary,
+                    thickness = 8.dp,
+                    shape = CircleShape
+                )
             )
-        )
+        }
     }
 }
 
