@@ -16,7 +16,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,7 +59,8 @@ fun SearchScreen(
                     )
                     Button(
                         onClick = { RepoMods.fetchManifest() },
-                        modifier = Modifier.fillMaxHeight().clip(MaterialTheme.shapes.small).clipToBounds().pointerHoverIcon(PointerIcon.Hand),
+                        modifier = Modifier.fillMaxHeight().clip(MaterialTheme.shapes.small).clipToBounds()
+                            .pointerHoverIcon(PointerIcon.Hand),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondary,
                             contentColor = MaterialTheme.colorScheme.onSecondary,
@@ -182,7 +182,7 @@ fun RowScope.SearchBar(
             Icon(
                 painterResource(Res.drawable.search_24px),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondary
+                tint = MaterialTheme.colorScheme.onSecondary,
             )
         },
         trailingIcon = {
@@ -226,16 +226,15 @@ fun ModItem(mod: Extension, onClick: () -> Unit) {
                 Text(
                     text = buildAnnotatedString {
                         withStyle(
-                            MaterialTheme.typography.titleMedium.toSpanStyle().copy(fontWeight = FontWeight.Black)
+                            MaterialTheme.typography.titleMedium.toSpanStyle().copy(color = MaterialTheme.colorScheme.onSurface,fontWeight = FontWeight.Black)
                         ) {
                             append(mod.displayName)
                         }
-                        withStyle(MaterialTheme.typography.labelMedium.toSpanStyle()) {
+                        withStyle(MaterialTheme.typography.labelMedium.toSpanStyle().copy(fontWeight = FontWeight.Bold)) {
                             if (mod.authors.isNotEmpty()) {
                                 append(" by ")
-                                withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                                    append(mod.authors.joinToString(", "))
-                                }
+                                append(mod.authors.joinToString(", "))
+
                             }
                         }
                     },
@@ -249,56 +248,58 @@ fun ModItem(mod: Extension, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                     minLines = 2
                 )
-                Row(
-                    modifier = Modifier.height(IntrinsicSize.Min),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Icon(
-                            painterResource(
-                                when {
-                                    modMeta == null -> {
-                                        Res.drawable.cloud_24px
-                                    }
-
-                                    !modMeta.isUnidentified -> {
-                                        Res.drawable.cloud_done_24px
-                                    }
-
-                                    else -> Res.drawable.computer_24px
+                    Row(
+                        modifier = Modifier.height(IntrinsicSize.Min)
+                            .horizontalScroll(rememberScrollState(), enabled = false),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        when {
+                            modMeta == null || !modMeta.isUnidentified -> {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Icon(painterResource(Res.drawable.download_24px), null, Modifier.size(24.dp))
+                                    Text(
+                                        mod.downloadCount.toString(),
+                                        style = MaterialTheme.typography.labelLargeEmphasized,
+                                        maxLines = 1
+                                    )
                                 }
-                            ), null, Modifier.size(24.dp)
-                        )
+                            }
+
+                            else -> {
+                                Icon(painterResource(Res.drawable.computer_24px), null, Modifier.size(24.dp))
+                            }
+                        }
+                        VerticalDivider(modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
                         Text(
                             if (modMeta?.isUnidentified ?: false) modMeta.file!!.name else mod.id,
                             style = MaterialTheme.typography.labelMedium, maxLines = 1
                         )
-                    }
 
-                    if (mod.downloadCount != null) {
-                        VerticalDivider(modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(painterResource(Res.drawable.download_24px), null, Modifier.size(24.dp))
-                            Text(mod.downloadCount.toString(), style = MaterialTheme.typography.labelLargeEmphasized, maxLines = 1)
+
+
+                        if (mod.tags.isNotEmpty()) {
+                            VerticalDivider(modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
                         }
-                    }
-    
-                    if (mod.tags.isNotEmpty()) {
-                        VerticalDivider(modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
-                    }
-                    mod.tags.forEach { tag ->
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ) {
-                            Text(
-                                text = tag,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                maxLines = 1
-                            )
+                        mod.tags.forEach { tag ->
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ) {
+                                Text(
+                                    text = tag,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                 }

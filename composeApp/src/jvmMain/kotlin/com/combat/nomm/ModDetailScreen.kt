@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -84,6 +83,7 @@ fun ModDetailScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ModTitleCard(
     mod: Extension,
@@ -104,75 +104,78 @@ fun ModTitleCard(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SelectionContainer(modifier = Modifier.weight(1f)) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column {
                     Text(
                         text = mod.displayName,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    Text(
+                        text = buildAnnotatedString {
+                            if (mod.authors.isNotEmpty()) {
+                                append("by ")
+                                
+                                append(mod.authors.joinToString(", "))
+                                
+                            }
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(8.dp))
+
                     Row(
-                        modifier = Modifier.height(IntrinsicSize.Min),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.height(IntrinsicSize.Min)
+                            .horizontalScroll(rememberScrollState(), enabled = false),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = buildAnnotatedString {
-                                if (mod.authors.isNotEmpty()) {
-                                    append("by ")
-                                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                                        append(mod.authors.joinToString(", "))
-                                    }
-                                }
-                            },
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1
-                        )
-                        VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(
-                                painterResource(
-                                    when {
-                                        modMeta == null -> {
-                                            Res.drawable.cloud_24px
-                                        }
-
-                                        !modMeta.isUnidentified -> {
-                                            Res.drawable.cloud_done_24px
-                                        }
-
-                                        else -> Res.drawable.computer_24px
-                                    }
-                                ), null, Modifier.size(24.dp)
-                            )
-                            Text(
-                                if (modMeta?.isUnidentified ?: false) modMeta.file!!.name else mod.id,
-                                style = MaterialTheme.typography.bodySmall, maxLines = 1
-                            )
-                        }
-
-                        VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
-                        
-                        Row(verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(painterResource(Res.drawable.download_24px), null, Modifier.size(24.dp))
-                            Text(mod.downloadCount.toString(), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                        }
-
-                        VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
-                        mod.tags.forEach { tag ->
-                            DisableSelection {
-                                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.onSurfaceVariant) {
+                        when {
+                            modMeta == null || !modMeta.isUnidentified -> {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Icon(painterResource(Res.drawable.download_24px), null, Modifier.size(24.dp))
                                     Text(
-                                        text = tag,
-                                        modifier = Modifier.padding(horizontal = 8.dp, 2.dp).clip(CircleShape),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        mod.downloadCount.toString(),
+                                        style = MaterialTheme.typography.labelLargeEmphasized,
                                         maxLines = 1
                                     )
                                 }
+                            }
+
+                            else -> {
+                                Icon(painterResource(Res.drawable.computer_24px), null, Modifier.size(24.dp))
+                            }
+                        }
+                        VerticalDivider(modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
+                        Text(
+                            if (modMeta?.isUnidentified ?: false) modMeta.file!!.name else mod.id,
+                            style = MaterialTheme.typography.labelMedium, maxLines = 1
+                        )
+
+
+
+                        if (mod.tags.isNotEmpty()) {
+                            VerticalDivider(modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
+                        }
+                        mod.tags.forEach { tag ->
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ) {
+                                Text(
+                                    text = tag,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    maxLines = 1
+                                )
                             }
                         }
                     }
@@ -470,19 +473,19 @@ fun ModDetailsContent(mod: Extension) {
         }
 
         Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
 
 
             Column(
                 modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(state),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
 
                 Spacer(Modifier.height(0.dp))
-                if (mod.infoUrl?.isNotEmpty() ?: false) {
-                    mod.urls.plus(UrlReference("Info", mod.infoUrl))
+                if (mod.urls.isNotEmpty()) {
+                    mod.urls
                         .filter { (_, url) ->
                             try {
                                 java.net.URI(url).run { host != null && scheme != null }
@@ -499,11 +502,12 @@ fun ModDetailsContent(mod: Extension) {
                                             append(url)
                                         }
                                     }
-                                }, style = MaterialTheme.typography.bodyMedium
+                                }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis
                             )
                         }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
+                
                 Text(
                     text = mod.description,
                     style = MaterialTheme.typography.bodyLarge,
@@ -516,7 +520,7 @@ fun ModDetailsContent(mod: Extension) {
                     modifier = Modifier
                         .fillMaxHeight()
                         .width(8.dp)
-                        .padding(vertical = 16.dp)
+                        .padding(vertical = 8.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     adapter = rememberScrollbarAdapter(state),
@@ -720,7 +724,7 @@ fun ModVersionDependenciesContent(
                 return@LazyColumn
             }
 
-            item { DependencyHeader("Extends", MaterialTheme.colorScheme.primary) }
+            item { DependencyHeader("Extends", MaterialTheme.colorScheme.onSurface) }
             if (artifact.extends != null) {
                 item {
                     val extendsVersion = artifact.extends.version
@@ -736,8 +740,7 @@ fun ModVersionDependenciesContent(
             }
 
             item {
-                Spacer(Modifier.height(8.dp))
-                DependencyHeader("Dependencies", MaterialTheme.colorScheme.primary)
+                DependencyHeader("Dependencies", MaterialTheme.colorScheme.onSurface)
             }
             if (artifact.dependencies.isNotEmpty()) {
                 val groupedDeps = artifact.dependencies.groupBy { it.id }
@@ -750,7 +753,6 @@ fun ModVersionDependenciesContent(
             }
 
             item {
-                Spacer(Modifier.height(8.dp))
                 DependencyHeader("Incompatibilities", MaterialTheme.colorScheme.error)
             }
             if (artifact.incompatibilities.isNotEmpty()) {
@@ -764,8 +766,7 @@ fun ModVersionDependenciesContent(
             }
 
             item {
-                Spacer(Modifier.height(8.dp))
-                DependencyHeader("Dependents", MaterialTheme.colorScheme.secondary)
+                DependencyHeader("Dependents", MaterialTheme.colorScheme.onSurface)
             }
             if (dependents.isNotEmpty()) {
                 items(dependents) { (id, versions) ->
@@ -801,7 +802,7 @@ private fun DependencyHeader(text: String, color: Color) {
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Black,
             color = color,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier
         )
     }
 }
@@ -818,13 +819,13 @@ private fun DependencyItemCard(
     Surface(
         onClick = { if (mod != null) onOpenMod(id) },
         enabled = mod != null,
-        color = if (isIncompatible) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
-        else MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = if (isIncompatible) MaterialTheme.colorScheme.errorContainer
+        else MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.small,
         modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clipToBounds().pointerHoverIcon(PointerIcon.Hand)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -833,13 +834,13 @@ private fun DependencyItemCard(
                     text = mod?.displayName ?: id,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = if (isIncompatible) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                    color = if (isIncompatible) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (versions.isNotEmpty()) {
                     Text(
                         text = versions.joinToString(", "),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isIncompatible) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -847,8 +848,8 @@ private fun DependencyItemCard(
                 Icon(
                     painter = painterResource(Res.drawable.arrow_right_24px),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                    tint = if (isIncompatible) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
                 )
             } else {
                 Text(
@@ -867,7 +868,7 @@ private fun EmptySectionText(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(8.dp)
     )
 }

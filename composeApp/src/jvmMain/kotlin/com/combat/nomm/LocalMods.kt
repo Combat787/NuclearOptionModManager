@@ -1,10 +1,10 @@
 package com.combat.nomm
 
 import io.github.vinceglb.filekit.FileKit
+import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.openFilePicker
 import io.github.vinceglb.filekit.dialogs.openFileSaver
-import io.github.vinceglb.filekit.path
 import io.github.vinceglb.filekit.readString
 import io.github.vinceglb.filekit.writeString
 import kotlinx.coroutines.CoroutineScope
@@ -45,7 +45,8 @@ object LocalMods {
     fun exportMods() {
         scope.launch {
             val exportData = json.encodeToString(
-                mods.value.filter { it.value.enabled == true }.map { PackageReference(it.value.id, it.value.artifact?.version) }
+                mods.value.filter { it.value.enabled == true }
+                    .map { PackageReference(it.value.id, it.value.artifact?.version) }
             )
 
             val file = FileKit.openFileSaver(
@@ -59,20 +60,21 @@ object LocalMods {
 
     fun addFromFile() {
         scope.launch {
-            val file = FileKit.openFilePicker(
+            val files = FileKit.openFilePicker(
+                mode = FileKitMode.Multiple(),
                 title = "Add From Files",
             )
 
-            file?.let { platformFile ->
+            if (!files.isNullOrEmpty()) {
                 val pluginsDir = File(SettingsManager.bepInExFolder, "plugins")
                 if (!pluginsDir.exists()) pluginsDir.mkdirs()
+                files.forEach { platformFile ->
 
-                val sourceFile = File(platformFile.path)
-                val destinationFile = File(pluginsDir, sourceFile.name)
+                    val destinationFile = File(pluginsDir, platformFile.file.name)
 
-                if (sourceFile.moveTo(destinationFile)) {
-                    refresh()
+                    platformFile.file.moveTo(destinationFile)
                 }
+                refresh()
             }
         }
     }
@@ -99,7 +101,7 @@ object LocalMods {
                     mods.value.forEach { (_, meta) ->
                         if (importedIds.contains(meta.id)) {
                             meta.enable()
-                        } else  {
+                        } else {
                             meta.disable()
                         }
                     }
@@ -115,13 +117,13 @@ object LocalMods {
         val bepinexFolder = SettingsManager.bepInExFolder
         if (bepinexFolder?.exists() == true) {
             isBepInExInstalled.value = true
-        } else  {
+        } else {
             isBepInExInstalled.value = false
             mods.update { emptyMap() }
             return
         }
 
-        isGameExeFound.value = File(SettingsManager.gameFolder,"NuclearOption.exe").exists()
+        isGameExeFound.value = File(SettingsManager.gameFolder, "NuclearOption.exe").exists()
 
         val plugins = File(bepinexFolder, "plugins").apply { mkdirs() }
         val disabled = File(bepinexFolder, "disabledPlugins").apply { mkdirs() }
@@ -185,7 +187,8 @@ object LocalMods {
             current.mapValues { (_, meta) ->
                 val repoMod = RepoMods.mods.value.find { it.id == meta.id }
                 val artifact = repoMod?.artifacts?.maxByOrNull { it.version }
-                val hasUpdate = if (artifact == null) false else meta.artifact?.version?.let { it < artifact.version } ?: true
+                val hasUpdate =
+                    if (artifact == null) false else meta.artifact?.version?.let { it < artifact.version } ?: true
 
                 val probs = meta.retrieveProblems()
                 meta.copy(
@@ -218,7 +221,7 @@ data class ModMeta(
     @Transient val file: File? = null,
     @Transient val isUnidentified: Boolean = false,
     @Transient val hasUpdate: Boolean = false,
-    @Transient val problems: List<String> = emptyList()
+    @Transient val problems: List<String> = emptyList(),
 ) {
     fun retrieveProblems(): List<String> {
         if (enabled != true) return emptyList()

@@ -38,6 +38,13 @@ object NetworkClient {
                 val manifest = RepoMods.json.decodeFromString<Manifest>(response.body())
                 SettingsManager.updateConfig(SettingsManager.config.value.copy(cachedManifest = manifest))
                 manifest
+            } else if (response.status == HttpStatusCode.NotFound) {
+                if (SettingsManager.config.value.manifestUrl == "https://kopterbuzz.github.io/NOModManifestTesting/manifest/manifest.json") {
+                    SettingsManager.updateConfig(SettingsManager.config.value.copy(manifestUrl = "https://kopterbuzz.github.io/NOMNOM/manifest/manifest.json"))
+                    fetchManifest(url)
+                } else {
+                    null
+                }
             } else {
                 null
             }

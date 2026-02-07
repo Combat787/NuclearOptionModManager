@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import nuclearoptionmodmanager.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
@@ -37,7 +38,6 @@ fun LibraryScreen(
                     displayName = modMeta.id,
                     description = "",
                     tags = emptyList(),
-                    infoUrl = "",
                     urls = emptyList(),
                     authors = emptyList(),
                     artifacts = emptyList()
@@ -46,7 +46,7 @@ fun LibraryScreen(
     }
 
     val filteredMods = rememberFilteredExtensions(installedExtensions, searchQuery)
-    
+
     val state = rememberLazyListState()
     Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         LazyColumn(
@@ -66,7 +66,7 @@ fun LibraryScreen(
                         onQueryChange = { searchQuery = it }
                     )
 
-                    Box {
+                    Box(contentAlignment = Alignment.TopCenter) {
                         Button(
                             onClick = { menuExpanded = true },
                             modifier = Modifier.fillMaxHeight().pointerHoverIcon(PointerIcon.Hand),
@@ -80,21 +80,34 @@ fun LibraryScreen(
                                 painterResource(Res.drawable.more_vert_24px), contentDescription = "Options"
                             )
                         }
-
+                        val contentColor = MaterialTheme.colorScheme.onSecondary
+                        val itemColors = MenuDefaults.itemColors(textColor = contentColor, leadingIconColor = contentColor)
                         DropdownMenu(
+                            shape = MaterialTheme.shapes.small,
+                            offset = DpOffset(x = 0.dp, y = 4.dp),
+                            containerColor = MaterialTheme.colorScheme.secondary,
                             expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                            DropdownMenuItem(text = { Text("Export Modpack") }, onClick = {
-                                menuExpanded = false
-                                LocalMods.exportMods()
-                            }, leadingIcon = { Icon(painterResource(Res.drawable.file_export_24px), null) })
+                            DropdownMenuItem(
+                                text = { Text("Export Modpack") },
+                                onClick = {
+                                    menuExpanded = false
+                                    LocalMods.exportMods()
+                                },
+                                leadingIcon = { Icon(painterResource(Res.drawable.file_export_24px), null) },
+                                colors = itemColors,
+                            )
                             DropdownMenuItem(text = { Text("Import Modpack") }, onClick = {
                                 menuExpanded = false
                                 LocalMods.importMods()
-                            }, leadingIcon = { Icon(painterResource(Res.drawable.file_open_24px), null) })
+                            }, leadingIcon = { Icon(painterResource(Res.drawable.file_open_24px), null) },
+                                colors = itemColors
+                            )
                             DropdownMenuItem(text = { Text("Add from file") }, onClick = {
                                 menuExpanded = false
                                 LocalMods.addFromFile()
-                            }, leadingIcon = { Icon(painterResource(Res.drawable.folder_open_24px), null) })
+                            }, leadingIcon = { Icon(painterResource(Res.drawable.folder_open_24px), null) },
+                                colors = itemColors
+                            )
                         }
                     }
                     Button(

@@ -12,7 +12,6 @@ data class Extension(
     val displayName: String = id,
     val description: String = "",
     val tags: List<String> = emptyList(),
-    val infoUrl: String? = null,
     val urls: List<UrlReference> = emptyList(),
     val authors: List<String> = emptyList(),
     val artifacts: List<Artifact>,
@@ -105,7 +104,11 @@ fun fetchFakeManifest(): List<Extension> {
             repeat(depCount) {
                 deps.add(PackageReference(allIds[rnd.nextInt(modCount)], Version(1, rnd.nextInt(10), 0)))
             }
-
+            val incompatsCount = rnd.nextInt(10, 20)
+            val incompats = ArrayList<PackageReference>(depCount)
+            repeat(incompatsCount) {
+                incompats.add(PackageReference(allIds[rnd.nextInt(modCount)], Version(1, rnd.nextInt(10), 0)))
+            }
             val fastHash = java.lang.Long.toHexString(rnd.nextLong()) + java.lang.Long.toHexString(rnd.nextLong())
 
             artifacts.add(Artifact(
@@ -118,11 +121,10 @@ fun fetchFakeManifest(): List<Extension> {
                 hash = fastHash,
                 extends = null,
                 dependencies = deps,
-                incompatibilities = emptyList()
+                incompatibilities = incompats
             ))
         }
 
-        // Optimized Random Tags: 1-4 random single words from latinWords
         val tagCount = rnd.nextInt(1, 5)
         val tags = ArrayList<String>(tagCount)
         repeat(tagCount) {
@@ -132,9 +134,9 @@ fun fetchFakeManifest(): List<Extension> {
         manifest.add(Extension(
             id = pkgId,
             displayName = pkgName,
-            description = "Description for $pkgName: ${latinWords[rnd.nextInt(16)]} ${latinWords[rnd.nextInt(16)]}",
+            description = List(rnd.nextInt(50,150)) { latinWords[rnd.nextInt(0, latinWords.size-1)] }.joinToString(" "),
             tags = tags,
-            infoUrl = "https://ex.com/$author/$pkgId",
+            urls = listOf(UrlReference("Info", "https://ex.com/$author/$pkgId")),
             authors = listOf(author),
             artifacts = artifacts,
             downloadCount = rnd.nextInt(1, 100000000),
