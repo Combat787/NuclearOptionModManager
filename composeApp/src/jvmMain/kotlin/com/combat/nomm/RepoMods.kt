@@ -68,7 +68,10 @@ object RepoMods {
         configDir.mkdirs()
         val config = File(configDir, "BepInEx.cfg")
         config.createNewFile()
-        config.writeText("[Chainloader] -> HideManagerGameObject = true")
+        config.writeText("""
+            [Chainloader]
+            HideManagerGameObject = true
+            """.trimIndent())
         Installer.installMod("BepInEx", url, SettingsManager.gameFolder, true) {
             LocalMods.refresh()
         }
