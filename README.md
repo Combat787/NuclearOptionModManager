@@ -14,7 +14,7 @@ Features:
 - Customizable Theme
 
 
-To work NOMM retrieves a manifest from [NOMNOM](https://kopterbuzz.github.io/NOModManifestTesting) to get the list of mods. To add your own mods go there.
+To work NOMM retrieves a manifest from [NOMNOM](https://github.com/KopterBuzz/NOMNOM) to get the list of mods. To add your own mods go there.
 
 App Icon made by Shumatsu
 
